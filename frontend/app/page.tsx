@@ -1,65 +1,719 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
+
+const AppCtx = createContext();
+const useApp = () => useContext(AppCtx);
+
+const SP = [
+  { id:1, name:"Speaker 1", color:"#6C63FF", bg:"rgba(108,99,255,0.12)", initial:"1" },
+  { id:2, name:"Speaker 2", color:"#00D2FF", bg:"rgba(0,210,255,0.12)", initial:"2" },
+  { id:3, name:"Speaker 3", color:"#FF6B9D", bg:"rgba(255,107,157,0.12)", initial:"3" },
+];
+const CATS = ["Statistical","Factual","Opinion","Projection","Historical"];
+const DEMO = [
+  { speaker:0, text:"Good morning everyone. Let's begin with the quarterly review.", isClaim:false },
+  { speaker:1, text:"Thanks. Our revenue grew by 34% year-over-year, well ahead of projections.", isClaim:true, claimCategory:"Statistical", confidence:92, context:"Revenue growth of 34% YoY is a verifiable financial metric. Industry average SaaS growth for 2025 was ~22%, making this significantly above average." },
+  { speaker:0, text:"That's encouraging. Can you break that down by segment?", isClaim:false },
+  { speaker:1, text:"Enterprise accounts drove about 60% of new revenue. Self-serve contributed 40%, a shift from last quarter.", isClaim:true, claimCategory:"Statistical", confidence:85, context:"Revenue segmentation of 60/40 enterprise vs self-serve represents a shift from the previous quarter's roughly 50/50 split." },
+  { speaker:2, text:"We should be careful. Historically Q1 has always been our weakest quarter for enterprise deals.", isClaim:true, claimCategory:"Historical", confidence:78, context:"The assertion about Q1 weakness aligns with common B2B sales cycles where budgets often reset early in the year." },
+  { speaker:0, text:"Good point. What's retention looking like?", isClaim:false },
+  { speaker:1, text:"Net revenue retention is 118%, highest in two years. Churn dropped to 2.1% this quarter.", isClaim:true, claimCategory:"Statistical", confidence:94, context:"NRR of 118% places the company in the top quartile of SaaS. Churn of 2.1% is well below the 5-7% industry median." },
+  { speaker:2, text:"The September product improvements are the main driver. The new onboarding flow cut time-to-value by half.", isClaim:true, claimCategory:"Factual", confidence:71, context:"Attributing retention to specific product changes may oversimplify. The 50% time-to-value reduction needs verification against onboarding analytics." },
+  { speaker:0, text:"Let's discuss the roadmap. Priorities for next quarter?", isClaim:false },
+  { speaker:1, text:"We're launching the AI analytics module. Internal testing shows 70% faster report generation.", isClaim:true, claimCategory:"Projection", confidence:68, context:"The 70% improvement is from internal testing and may not reflect real-world usage. Projected gains often decrease at scale." },
+  { speaker:2, text:"This will be our most significant launch since the 2023 platform rewrite. The AI analytics market should reach $40 billion by 2027.", isClaim:true, claimCategory:"Opinion", confidence:55, context:"Comparison to 2023 rewrite is subjective. Market projections vary from $28B to $52B depending on scope." },
+  { speaker:0, text:"Great discussion. Let's schedule follow-ups with each team lead. Thanks everyone.", isClaim:false },
+];
+const SAVED_SESSIONS = [
+  { id:1, title:"Q4 Strategy Meeting", date:"Mar 10, 2026", duration:"24:35", speakers:3, claims:8, segments:DEMO.map((s,i)=>({...s,timestamp:`${String(Math.floor(i*2/60)).padStart(2,"0")}:${String((i*12)%60).padStart(2,"0")}`})) },
+  { id:2, title:"Product Roadmap Review", date:"Mar 7, 2026", duration:"18:12", speakers:2, claims:5, segments:[] },
+  { id:3, title:"Investor Update Call", date:"Mar 3, 2026", duration:"32:08", speakers:4, claims:12, segments:[] },
+  { id:4, title:"Engineering Standup", date:"Feb 28, 2026", duration:"11:45", speakers:3, claims:3, segments:[] },
+];
+const SAVED_PAPERS = [
+  { id:1, title:"The Impact of AI on Modern Healthcare Systems", date:"Mar 11, 2026", claims:14, status:"Verified" },
+  { id:2, title:"Climate Change Policy Brief 2026", date:"Mar 8, 2026", claims:23, status:"In Progress" },
+  { id:3, title:"Quarterly Financial Analysis Report", date:"Mar 5, 2026", claims:9, status:"Verified" },
+  { id:4, title:"Neural Network Architecture Comparisons", date:"Mar 1, 2026", claims:18, status:"Pending" },
+];
+
+const Badge = ({children,color="#FFD666",bg}) => <span style={{padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",background:bg||`${color}22`,color}}>{children}</span>;
+const Btn = ({children,primary,small,style,...p}) => <button {...p} style={{padding:small?"6px 14px":"10px 22px",borderRadius:small?8:12,border:"none",cursor:"pointer",fontSize:small?12:14,fontWeight:600,background:primary?"linear-gradient(135deg,#6C63FF,#00D2FF)":"rgba(255,255,255,0.06)",color:primary?"#fff":"#ccc",transition:"all 0.2s",...style}}>{children}</button>;
+const Card = ({children,style,onClick}) => <div onClick={onClick} style={{padding:20,borderRadius:16,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",cursor:onClick?"pointer":"default",transition:"all 0.25s",...style}}>{children}</div>;
+const Input = ({label,type="text",...p}) => <div style={{display:"flex",flexDirection:"column",gap:6}}>{label&&<label style={{fontSize:12,fontWeight:600,color:"#888"}}>{label}</label>}<input type={type} {...p} style={{padding:"10px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#E8E8F0",fontSize:14,outline:"none",...(p.style||{})}}/></div>;
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+const WaveBar = ({active}) => {
+  const [h,setH]=useState(Array(20).fill(4));
+  useEffect(()=>{if(!active){setH(Array(20).fill(4));return;}const i=setInterval(()=>setH(Array(20).fill(0).map(()=>Math.random()*28+4)),120);return()=>clearInterval(i);},[active]);
+  return <div style={{display:"flex",gap:2,alignItems:"center",height:32}}>{h.map((v,i)=><div key={i} style={{width:3,height:v,borderRadius:2,background:"linear-gradient(to top,#6C63FF,#00D2FF)",transition:"height 0.12s",opacity:active?.8:.2}}/>)}</div>;
+};
+const Pulse = ({color,size=10}) => {
+  const [p,setP]=useState(false);
+  useEffect(()=>{const i=setInterval(()=>setP(v=>!v),1500);return()=>clearInterval(i);},[]);
+  return <div style={{position:"relative",width:size,height:size}}><div style={{position:"absolute",inset:0,borderRadius:"50%",background:color,opacity:.9}}/><div style={{position:"absolute",inset:-3,borderRadius:"50%",border:`2px solid ${color}`,opacity:p?0:.6,transform:p?"scale(1.8)":"scale(1)",transition:"all 1.5s ease-out"}}/></div>;
+};
+
+// ── Claim Card Stack ──
+function ClaimCardStack({ claims, open, onClose }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const stackRef = useRef(null);
+
+  useEffect(() => { if (claims.length > 0) setActiveIdx(claims.length - 1); }, [claims.length]);
+
+  const goTo = (i) => setActiveIdx(Math.max(0, Math.min(claims.length - 1, i)));
+
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    if (e.deltaY > 0) goTo(activeIdx - 1);
+    else goTo(activeIdx + 1);
+  }, [activeIdx, claims.length]);
+
+  useEffect(() => {
+    const el = stackRef.current;
+    if (!el || !open) return;
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [handleWheel, open]);
+
+  if (!claims.length) return (
+    <div style={{width:open?400:0,transition:"width 0.4s cubic-bezier(0.16,1,0.3,1)",overflow:"hidden",borderLeft:open?"1px solid rgba(255,255,255,0.06)":"none",flexShrink:0}}>
+      <div style={{width:400,height:"100%",background:"rgba(12,12,22,0.98)",display:"flex",alignItems:"center",justifyContent:"center",padding:40}}>
+        <p style={{color:"#555",fontSize:14,textAlign:"center"}}>Claims will appear here as they're detected.</p>
+      </div>
     </div>
+  );
+
+  const claim = claims[activeIdx];
+  const confColor = claim.confidence > 80 ? "#4ADE80" : claim.confidence > 60 ? "#FFD666" : "#FF6B6B";
+  const confGrad = claim.confidence > 80 ? "linear-gradient(90deg,#4ADE80,#22C55E)" : claim.confidence > 60 ? "linear-gradient(90deg,#FFD666,#F59E0B)" : "linear-gradient(90deg,#FF6B6B,#EF4444)";
+
+  return (
+    <div style={{width:open?400:0,transition:"width 0.4s cubic-bezier(0.16,1,0.3,1)",overflow:"hidden",borderLeft:open?"1px solid rgba(255,255,255,0.06)":"none",flexShrink:0}}>
+      <div style={{width:400,height:"100%",display:"flex",flexDirection:"column",background:"rgba(12,12,22,0.98)",backdropFilter:"blur(24px)"}}>
+        {/* Header */}
+        <div style={{padding:"14px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:"#FFD666",boxShadow:"0 0 12px rgba(255,214,102,0.5)"}}/>
+            <span style={{fontSize:14,fontWeight:700}}>Claim Stack</span>
+            <span style={{fontSize:12,color:"#666",marginLeft:4}}>{claims.length} total</span>
+          </div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:"none",color:"#888",width:28,height:28,borderRadius:8,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+
+        {/* Card Stack Area */}
+        <div ref={stackRef} style={{flex:1,position:"relative",overflow:"hidden",padding:"24px 20px 16px"}}>
+          {/* Stacked cards behind */}
+          {claims.map((c, i) => {
+            const dist = i - activeIdx;
+            const absDist = Math.abs(dist);
+            if (absDist > 4) return null;
+            const isActive = i === activeIdx;
+            return (
+              <div key={i} onClick={() => setActiveIdx(i)} style={{
+                position: "absolute", left: 20, right: 20, top: 24,
+                borderRadius: 18,
+                background: isActive ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
+                border: isActive ? "1px solid rgba(255,214,102,0.2)" : "1px solid rgba(255,255,255,0.05)",
+                backdropFilter: "blur(16px)",
+                transform: `translateY(${dist * -12}px) scale(${1 - absDist * 0.03})`,
+                opacity: isActive ? 1 : Math.max(0, 0.7 - absDist * 0.2),
+                zIndex: claims.length - absDist,
+                transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+                cursor: isActive ? "default" : "pointer",
+                pointerEvents: absDist > 2 ? "none" : "auto",
+                boxShadow: isActive ? "0 8px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,214,102,0.08)" : "0 4px 20px rgba(0,0,0,0.3)",
+                padding: 0,
+                overflow: "hidden",
+                height: isActive ? "auto" : "calc(100% - 20px)",
+                maxHeight: "calc(100% - 20px)",
+              }}>
+                {isActive ? (
+                  <div style={{padding:20,display:"flex",flexDirection:"column",gap:14,animation:"cardIn 0.35s ease",maxHeight:"100%",overflowY:"auto"}}>
+                    {/* Claim number */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:28,height:28,borderRadius:8,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"#FFD666"}}>#{i+1}</div>
+                        <Badge color={confColor}>{c.claimCategory}</Badge>
+                      </div>
+                      <span style={{fontSize:22,fontWeight:800,color:confColor}}>{c.confidence}%</span>
+                    </div>
+
+                    {/* Claim Text */}
+                    <div style={{padding:14,borderRadius:12,background:"rgba(255,214,102,0.05)",borderLeft:"3px solid #FFD666"}}>
+                      <p style={{fontSize:13.5,lineHeight:1.65,color:"#E8E8F0",margin:0}}>"{c.text}"</p>
+                      <div style={{marginTop:10,display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:18,height:18,borderRadius:5,background:`linear-gradient(135deg,${SP[c.speaker].color},${SP[c.speaker].color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700}}>{SP[c.speaker].initial}</div>
+                        <span style={{fontSize:11,color:SP[c.speaker].color,fontWeight:600}}>{SP[c.speaker].name}</span>
+                      </div>
+                    </div>
+
+                    {/* Confidence bar */}
+                    <div>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666"}}>Confidence</span>
+                      </div>
+                      <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.06)",overflow:"hidden"}}>
+                        <div style={{height:"100%",borderRadius:3,width:`${c.confidence}%`,background:confGrad,transition:"width 0.8s cubic-bezier(0.16,1,0.3,1)"}}/>
+                      </div>
+                    </div>
+
+                    {/* Category chips */}
+                    <div>
+                      <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Category</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {CATS.map(cat => (
+                          <span key={cat} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:600,background:cat===c.claimCategory?"rgba(108,99,255,0.2)":"rgba(255,255,255,0.04)",color:cat===c.claimCategory?"#A5A0FF":"#555",border:cat===c.claimCategory?"1px solid rgba(108,99,255,0.3)":"1px solid transparent"}}>{cat}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Context */}
+                    <div>
+                      <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Context</div>
+                      <p style={{fontSize:12.5,lineHeight:1.7,color:"#999",margin:0}}>{c.context}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{padding:16,opacity:0.7}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:22,height:22,borderRadius:6,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#FFD666"}}>#{i+1}</div>
+                        <Badge color={c.confidence>80?"#4ADE80":c.confidence>60?"#FFD666":"#FF6B6B"}>{c.claimCategory}</Badge>
+                      </div>
+                      <span style={{fontSize:14,fontWeight:700,color:c.confidence>80?"#4ADE80":c.confidence>60?"#FFD666":"#FF6B6B"}}>{c.confidence}%</span>
+                    </div>
+                    <p style={{fontSize:12,lineHeight:1.5,color:"#aaa",margin:0,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{c.text}"</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Navigation dots */}
+        <div style={{padding:"12px 20px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:6,flexShrink:0}}>
+          <button onClick={()=>goTo(activeIdx-1)} disabled={activeIdx===0} style={{width:28,height:28,borderRadius:8,border:"none",cursor:activeIdx===0?"default":"pointer",background:"rgba(255,255,255,0.06)",color:activeIdx===0?"#333":"#999",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,opacity:activeIdx===0?.4:1}}>‹</button>
+          <div style={{display:"flex",gap:4,alignItems:"center"}}>
+            {claims.map((_, i) => (
+              <div key={i} onClick={() => setActiveIdx(i)} style={{
+                width: i === activeIdx ? 20 : 6, height: 6, borderRadius: 3,
+                background: i === activeIdx ? "#FFD666" : "rgba(255,255,255,0.12)",
+                cursor: "pointer", transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+              }}/>
+            ))}
+          </div>
+          <button onClick={()=>goTo(activeIdx+1)} disabled={activeIdx===claims.length-1} style={{width:28,height:28,borderRadius:8,border:"none",cursor:activeIdx===claims.length-1?"default":"pointer",background:"rgba(255,255,255,0.06)",color:activeIdx===claims.length-1?"#333":"#999",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,opacity:activeIdx===claims.length-1?.4:1}}>›</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Pages ──
+function LandingPage() {
+  const {setPage}=useApp();
+  const [glow,setGlow]=useState(false);
+  useEffect(()=>{const i=setInterval(()=>setGlow(g=>!g),2000);return()=>clearInterval(i);},[]);
+  return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:40,position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,rgba(108,99,255,0.08) 0%,transparent 70%)",top:"-10%",left:"-10%",animation:"float 8s ease-in-out infinite"}}/>
+      <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,210,255,0.06) 0%,transparent 70%)",bottom:"-10%",right:"-10%",animation:"float 8s ease-in-out infinite reverse"}}/>
+      <div style={{position:"relative",zIndex:1,maxWidth:700}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginBottom:32}}>
+          <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:800,boxShadow:glow?"0 0 40px rgba(108,99,255,0.5)":"0 0 20px rgba(108,99,255,0.2)",transition:"box-shadow 2s"}}>F</div>
+          <span style={{fontSize:42,fontWeight:800,letterSpacing:"-0.03em",background:"linear-gradient(135deg,#E8E8F0,#A5A0FF)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Footnote</span>
+        </div>
+        <p style={{fontSize:22,lineHeight:1.5,color:"#aaa",marginBottom:12,fontWeight:300}}>Real-time audio transcription with AI-powered claim detection and speaker identification.</p>
+        <p style={{fontSize:15,lineHeight:1.6,color:"#666",marginBottom:48,maxWidth:520,margin:"0 auto 48px"}}>Footnote listens, transcribes, and highlights every verifiable claim — so you can focus on what matters.</p>
+        <div style={{display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}}>
+          <Btn primary onClick={()=>setPage("signup")} style={{padding:"14px 36px",fontSize:16,borderRadius:14}}>Get Started</Btn>
+          <Btn onClick={()=>setPage("signin")} style={{padding:"14px 36px",fontSize:16,borderRadius:14}}>Sign In</Btn>
+        </div>
+        <div style={{display:"flex",gap:40,justifyContent:"center",marginTop:64,flexWrap:"wrap"}}>
+          {[["Live Transcription","Real-time speech-to-text with speaker diarization"],["Claim Detection","AI highlights verifiable statements automatically"],["Context Analysis","Instant context and confidence scoring for every claim"]].map(([t,d])=>(
+            <div key={t} style={{maxWidth:180,textAlign:"center"}}><div style={{fontSize:14,fontWeight:700,color:"#E8E8F0",marginBottom:6}}>{t}</div><div style={{fontSize:12,color:"#666",lineHeight:1.5}}>{d}</div></div>
+          ))}
+        </div>
+      </div>
+      <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}`}</style>
+    </div>
+  );
+}
+
+function AuthPage({mode}) {
+  const {setPage,setAuth}=useApp(); const isUp=mode==="signup";
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{width:400,padding:40,borderRadius:24,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(20px)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:32,cursor:"pointer"}} onClick={()=>setPage("landing")}>
+          <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800}}>F</div>
+          <span style={{fontSize:18,fontWeight:700}}>Footnote</span>
+        </div>
+        <h2 style={{fontSize:24,fontWeight:800,marginBottom:8}}>{isUp?"Create account":"Welcome back"}</h2>
+        <p style={{fontSize:13,color:"#888",marginBottom:28}}>{isUp?"Start verifying claims in minutes":"Sign in to your account"}</p>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {isUp&&<Input label="Full Name" placeholder="Jane Doe"/>}
+          <Input label="Email" type="email" placeholder="you@example.com"/>
+          <Input label="Password" type="password" placeholder="••••••••"/>
+          {isUp&&<Input label="Confirm Password" type="password" placeholder="••••••••"/>}
+          <Btn primary onClick={()=>{setAuth(true);setPage("dashboard")}} style={{marginTop:8,padding:"12px 0",width:"100%"}}>{isUp?"Create Account":"Sign In"}</Btn>
+        </div>
+        <p style={{fontSize:13,color:"#666",textAlign:"center",marginTop:20}}>{isUp?"Already have an account? ":"Don't have an account? "}<span style={{color:"#6C63FF",cursor:"pointer",fontWeight:600}} onClick={()=>setPage(isUp?"signin":"signup")}>{isUp?"Sign In":"Sign Up"}</span></p>
+      </div>
+    </div>
+  );
+}
+
+function DashboardPage() {
+  const {setPage}=useApp();
+  return (
+    <div style={{padding:32,maxWidth:1100,margin:"0 auto"}}>
+      <div style={{marginBottom:32}}><h1 style={{fontSize:28,fontWeight:800,marginBottom:4}}>Dashboard</h1><p style={{fontSize:14,color:"#888"}}>Welcome back. Here's your recent activity.</p></div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:32}}>
+        {[["Sessions","12","#6C63FF"],["Claims Found","87","#FFD666"],["Papers Saved","4","#00D2FF"],["Hours Saved","6.5h","#4ADE80"]].map(([l,v,c])=>(
+          <Card key={l}><div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>{l}</div><div style={{fontSize:28,fontWeight:800,color:c}}>{v}</div></Card>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:32}}>
+        <Card onClick={()=>setPage("verify")} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:16,border:"1px solid rgba(108,99,255,0.2)",background:"rgba(108,99,255,0.04)"}}>
+          <div style={{width:48,height:48,borderRadius:14,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+          <div><div style={{fontSize:15,fontWeight:700}}>New Session</div><div style={{fontSize:12,color:"#888"}}>Start a live transcription or paste text</div></div>
+        </Card>
+        <Card onClick={()=>setPage("papers")} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{width:48,height:48,borderRadius:14,background:"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div><div style={{fontSize:15,fontWeight:700}}>Saved Papers</div><div style={{fontSize:12,color:"#888"}}>View and manage analyzed documents</div></div>
+        </Card>
+      </div>
+      <div style={{marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{fontSize:18,fontWeight:700}}>Recent Sessions</h2><Btn small onClick={()=>setPage("sessions")}>View All</Btn></div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {SAVED_SESSIONS.slice(0,3).map(s=>(
+          <Card key={s.id} onClick={()=>setPage("session-"+s.id)} style={{cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:40,height:40,borderRadius:12,background:"rgba(108,99,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+              <div><div style={{fontSize:14,fontWeight:600}}>{s.title}</div><div style={{fontSize:12,color:"#666"}}>{s.date} · {s.duration}</div></div>
+            </div>
+            <div style={{display:"flex",gap:12,alignItems:"center"}}><Badge color="#FFD666">{s.claims} claims</Badge><Badge color="#6C63FF">{s.speakers} speakers</Badge></div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SessionsPage() {
+  const {setPage}=useApp();
+  return (
+    <div style={{padding:32,maxWidth:900,margin:"0 auto"}}>
+      <h1 style={{fontSize:28,fontWeight:800,marginBottom:4}}>Saved Sessions</h1><p style={{fontSize:14,color:"#888",marginBottom:28}}>Browse your recorded transcription sessions.</p>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {SAVED_SESSIONS.map(s=>(
+          <Card key={s.id} onClick={()=>setPage("session-"+s.id)} style={{cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 22px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:44,height:44,borderRadius:12,background:"rgba(108,99,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="2" strokeLinecap="round"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+              <div><div style={{fontSize:15,fontWeight:700}}>{s.title}</div><div style={{fontSize:12,color:"#666"}}>{s.date} · {s.duration} · {s.speakers} speakers</div></div>
+            </div>
+            <Badge color="#FFD666">{s.claims} claims</Badge>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SessionDetailPage({id}) {
+  const session=SAVED_SESSIONS.find(s=>s.id===id);
+  const [sel,setSel]=useState(null);
+  const [panel,setPanel]=useState(false);
+  const allClaims = (session?.segments||[]).filter(s=>s.isClaim);
+  if(!session) return <div style={{padding:40}}>Session not found.</div>;
+  const segs=session.segments;
+  return (
+    <div style={{display:"flex",height:"calc(100vh - 56px)",overflow:"hidden"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"16px 24px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><h2 style={{fontSize:18,fontWeight:700,margin:0}}>{session.title}</h2><p style={{fontSize:12,color:"#666",margin:"4px 0 0"}}>{session.date} · {session.duration} · {session.speakers} speakers · {session.claims} claims</p></div>
+          <div style={{display:"flex",gap:8}}><Badge color="#4ADE80">Saved</Badge>{allClaims.length>0&&<Btn small onClick={()=>setPanel(!panel)}>{panel?"Hide":"Show"} Claims</Btn>}</div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+          {segs.length===0?<p style={{color:"#666",textAlign:"center",marginTop:60}}>Full transcript data not available for this session.</p>:
+            segs.map((seg,i)=>{const sp=SP[seg.speaker];const prev=i>0?segs[i-1].speaker:-1;const showH=seg.speaker!==prev;return(
+              <div key={i}>
+                {showH&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:i>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${sp.color},${sp.color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{sp.initial}</div><span style={{fontSize:13,fontWeight:600,color:sp.color}}>{sp.name}</span><span style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{seg.timestamp}</span></div>}
+                <div onClick={()=>{if(seg.isClaim){const idx=allClaims.indexOf(seg);setPanel(true);}}} style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:seg.isClaim?"pointer":"default",background:seg.isClaim?"rgba(255,214,102,0.08)":"transparent",borderLeft:seg.isClaim?"3px solid #FFD666":"3px solid transparent"}}>
+                  <span style={{fontSize:14,lineHeight:1.65,color:seg.isClaim?"#FFE8A0":"#ccc"}}>{seg.text}</span>
+                  {seg.isClaim&&<span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
+                </div>
+              </div>
+            );})}
+        </div>
+      </div>
+      <ClaimCardStack claims={allClaims} open={panel} onClose={()=>setPanel(false)}/>
+    </div>
+  );
+}
+
+function PapersPage() {
+  const {setPage}=useApp();
+  return (
+    <div style={{padding:32,maxWidth:900,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}>
+        <div><h1 style={{fontSize:28,fontWeight:800,margin:0}}>Saved Papers</h1><p style={{fontSize:14,color:"#888",marginTop:4}}>Documents you've analyzed for claims.</p></div>
+        <Btn primary onClick={()=>setPage("verify")}>+ New Paper</Btn>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {SAVED_PAPERS.map(p=>(
+          <Card key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"18px 22px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:44,height:44,borderRadius:12,background:"rgba(0,210,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00D2FF" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+              <div><div style={{fontSize:15,fontWeight:700}}>{p.title}</div><div style={{fontSize:12,color:"#666"}}>{p.date} · {p.claims} claims</div></div>
+            </div>
+            <Badge color={p.status==="Verified"?"#4ADE80":p.status==="In Progress"?"#FFD666":"#888"}>{p.status}</Badge>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Verify Page ──
+function VerifyPage() {
+  const [tab,setTab]=useState("live");
+  return (
+    <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 56px)"}}>
+      <div style={{padding:"12px 24px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",gap:4}}>
+        {["live","text"].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:"8px 20px",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:tab===t?"rgba(108,99,255,0.15)":"transparent",color:tab===t?"#A5A0FF":"#666",transition:"all 0.2s"}}>{t==="live"?"Live Mode":"Text Input"}</button>)}
+      </div>
+      {tab==="live"?<LiveMode/>:<TextMode/>}
+    </div>
+  );
+}
+
+function LiveMode() {
+  const [rec, setRec] = useState(false);
+  const [segs, setSegs] = useState<any[]>([]);
+  const [partialText, setPartialText] = useState("");
+  const [panel, setPanel] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const clientRef = useRef<any>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const elapsedRef = useRef(0);
+  const speakerMapRef = useRef<Record<string, number>>({});
+  const nextSpIdxRef = useRef(0);
+
+  const claims = segs.filter(s => s.isClaim);
+
+  useEffect(() => {
+    if (!rec) return;
+    const i = setInterval(() => { elapsedRef.current += 1; setElapsed(elapsedRef.current); }, 1000);
+    return () => clearInterval(i);
+  }, [rec]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [segs, partialText]);
+
+  const isClaimText = (text: string) => /\d+%|grew|increased|decreased|always|never|most|every|research shows|studies|according|billion|million|fastest|largest|significantly/i.test(text);
+
+  // Map Speechmatics speaker IDs ("S1","S2"…) to SP array indices, in order of first appearance
+  const getSpeakerIdx = useCallback((speakerId: string) => {
+    if (!(speakerId in speakerMapRef.current)) {
+      speakerMapRef.current[speakerId] = nextSpIdxRef.current % SP.length;
+      nextSpIdxRef.current++;
+    }
+    return speakerMapRef.current[speakerId];
+  }, []);
+
+  // Join result tokens respecting punctuation attachment (no space before ".", ",", etc.)
+  const joinResults = (results: any[]) => {
+    let text = "";
+    for (const r of results) {
+      const content = r.alternatives?.[0]?.content || "";
+      if (!content) continue;
+      if (r.type === "punctuation") {
+        const attaches = r.attaches_to || "previous";
+        text += attaches === "next" ? " " + content : content;
+      } else {
+        text = text ? text + " " + content : content;
+      }
+    }
+    return text.trim();
+  };
+
+  const stopRecording = useCallback(() => {
+    if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
+    if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (clientRef.current) { try { clientRef.current.stopRecognition({ noTimeout: true }); } catch {} clientRef.current = null; }
+    speakerMapRef.current = {};
+    nextSpIdxRef.current = 0;
+    setRec(false);
+    setPartialText("");
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      setError(null);
+      elapsedRef.current = 0;
+      setElapsed(0);
+
+      // Fetch short-lived JWT from server (keeps API key off client)
+      const res = await fetch("/api/speechmatics-token");
+      const data = await res.json();
+      console.log("Got token data:", data);
+      if (data.error) throw new Error(data.error);
+
+      // Mic access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      streamRef.current = stream;
+
+      // Build Speechmatics client
+      const { RealtimeClient } = await import("@speechmatics/real-time-client");
+      const client = new RealtimeClient();
+      clientRef.current = client;
+
+      client.addEventListener("receiveMessage", ({ data }) => {
+        console.log("Received message:", data);
+        if (data.message === "AddPartialTranscript") {
+          // Partials: low-latency provisional — use pre-formatted transcript string
+          setPartialText(data.metadata?.transcript || "");
+        } else if (data.message === "AddTranscript") {
+          // Finals: group results by speaker, append to existing segment if same speaker continues
+          setPartialText("");
+          const results: any[] = data.results || [];
+          if (!results.length) return;
+
+          // Group consecutive tokens by their speaker label
+          const groups: { speakerId: string; results: any[] }[] = [];
+          for (const r of results) {
+            const sid = r.alternatives?.[0]?.speaker || "S1";
+            if (!groups.length || groups[groups.length - 1].speakerId !== sid) {
+              groups.push({ speakerId: sid, results: [r] });
+            } else {
+              groups[groups.length - 1].results.push(r);
+            }
+          }
+
+          // Determine up-front whether any group is a claim (avoids calling setPanel inside setSegs)
+          const groupTexts = groups.map(g => ({ speakerIdx: getSpeakerIdx(g.speakerId), text: joinResults(g.results) }));
+          const hasNewClaim = groupTexts.some(g => isClaimText(g.text));
+
+          setSegs(prev => {
+            const updated = [...prev];
+            for (const { speakerIdx, text } of groupTexts) {
+              if (!text) continue;
+              const isClaim = isClaimText(text);
+              const last = updated[updated.length - 1];
+              // Append to the last segment when the speaker is the same and neither is a claim
+              if (last && last.speaker === speakerIdx && !last.isClaim && !isClaim) {
+                updated[updated.length - 1] = { ...last, text: last.text + " " + text };
+              } else {
+                updated.push({
+                  text,
+                  speaker: speakerIdx,
+                  timestamp: fmt(elapsedRef.current),
+                  isClaim,
+                  ...(isClaim ? {
+                    claimCategory: CATS[Math.floor(Math.random() * CATS.length)],
+                    confidence: Math.floor(Math.random() * 40 + 55),
+                    context: "This statement contains a verifiable assertion that could be fact-checked against primary sources.",
+                  } : {}),
+                });
+              }
+            }
+            return updated;
+          });
+          if (hasNewClaim) setPanel(true);
+        } else if (data.message === "EndOfTranscript") {
+          setRec(false); setPartialText("");
+        } else if (data.message === "Error") {
+          setError(`Speechmatics: ${data.reason || JSON.stringify(data)}`);
+          stopRecording();
+        }
+      });
+
+      // Capture PCM via ScriptProcessor so we control sample format
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        if (!clientRef.current) return;
+        const float32 = e.inputBuffer.getChannelData(0);
+        const int16 = new Int16Array(float32.length);
+        for (let i = 0; i < float32.length; i++) {
+          int16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32767));
+        }
+        clientRef.current.sendAudio(int16.buffer);
+      };
+
+      // Wait for the WebSocket handshake to complete before connecting audio graph
+      await client.start(data.jwt, {
+        transcription_config: {
+          language: "en",
+          operating_point: "enhanced",
+          max_delay: 2.0,
+          enable_partials: true,       // emit low-latency partial transcripts
+          transcript_filtering_config: { remove_disfluencies: true },
+          diarization: "speaker"
+
+        },
+        audio_format: {
+          type: "raw" as const,
+          encoding: "pcm_s16le" as const,
+          sample_rate: audioContext.sampleRate,
+        },
+      });
+
+      // Connect audio graph only after WebSocket is open and ready
+      const silentDest = audioContext.createMediaStreamDestination();
+      source.connect(processor);
+      processor.connect(silentDest);
+
+      setRec(true);
+    } catch (err) {
+      setError((err instanceof Error ? err.message : null) || "Failed to start recording");
+      stopRecording();
+    }
+  }, [stopRecording]);
+
+  const toggle = () => { if (rec) stopRecording(); else startRecording(); };
+
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
+        <div style={{padding:"12px 24px",display:"flex",alignItems:"center",gap:16,borderBottom:"1px solid rgba(255,255,255,0.04)"}}>
+          <button onClick={toggle} style={{width:44,height:44,borderRadius:"50%",border:"none",cursor:"pointer",background:rec?"linear-gradient(135deg,#FF4466,#FF6B6B)":"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:rec?"0 0 24px rgba(255,68,102,0.4)":"0 0 24px rgba(108,99,255,0.3)",transition:"all 0.3s"}}>
+            {rec?<div style={{width:14,height:14,borderRadius:3,background:"#fff"}}/>:<svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>}
+          </button>
+          <div style={{flex:1}}><WaveBar active={rec}/></div>
+          <span style={{fontFamily:"monospace",fontSize:13,color:"#888"}}>{fmt(elapsed)}</span>
+          <Badge color="#FFD666">{claims.length} claims</Badge>
+          {rec&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:16,background:"rgba(108,99,255,0.12)"}}><Pulse color="#6C63FF" size={8}/><span style={{fontSize:12,fontWeight:600,color:"#A5A0FF"}}>Listening</span></div>}
+        </div>
+        {error&&<div style={{padding:"10px 24px",background:"rgba(255,68,68,0.08)",borderBottom:"1px solid rgba(255,68,68,0.15)",fontSize:13,color:"#FF6B6B"}}>{error}</div>}
+        <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:4}}>
+          {segs.length===0&&!rec&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:.4}}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="1.5" strokeLinecap="round"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg><p style={{fontSize:14,color:"#666",marginTop:12}}>Press record to begin</p></div>}
+          {segs.map((seg,i)=>{const sp=SP[seg.speaker]||SP[0];const prev=i>0?segs[i-1].speaker:-1;const showH=seg.speaker!==prev;return(
+            <div key={i} style={{animation:"fadeIn 0.3s ease"}}>
+              {showH&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:i>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${sp.color},${sp.color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{sp.initial}</div><span style={{fontSize:13,fontWeight:600,color:sp.color}}>{sp.name}</span><span style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{seg.timestamp}</span></div>}
+              <div onClick={()=>{if(seg.isClaim)setPanel(true)}} style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:seg.isClaim?"pointer":"default",background:seg.isClaim?"rgba(255,214,102,0.08)":"transparent",borderLeft:seg.isClaim?"3px solid #FFD666":"3px solid transparent"}}>
+                <span style={{fontSize:14,lineHeight:1.65,color:seg.isClaim?"#FFE8A0":"#ccc"}}>{seg.text}</span>{seg.isClaim&&<span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
+              </div>
+            </div>
+          );})}
+          {/* Partial transcript: shown in-progress, replaced by final when stable */}
+          {rec&&partialText&&(
+            <div style={{animation:"fadeIn 0.3s ease"}}>
+              {(segs.length===0||segs[segs.length-1]?.speaker!==0)&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:segs.length>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${SP[0].color},${SP[0].color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{SP[0].initial}</div><span style={{fontSize:13,fontWeight:600,color:SP[0].color}}>{SP[0].name}</span><Pulse color={SP[0].color} size={8}/></div>}
+              <div style={{padding:"8px 12px",marginLeft:36,borderRadius:10}}>
+                <span style={{fontSize:14,lineHeight:1.65,color:"#666",fontStyle:"italic"}}>{partialText}<span style={{animation:"blink 1s infinite",color:SP[0].color}}>|</span></span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      <ClaimCardStack claims={claims} open={panel} onClose={()=>setPanel(false)}/>
+    </div>
+  );
+}
+
+function TextMode() {
+  const [text,setText]=useState("");
+  const [results,setResults]=useState(null);
+  const [panel,setPanel]=useState(false);
+  const analyze=()=>{
+    const sentences=text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const r=sentences.map((s,i)=>{
+      const isClaim=/\d+%|grew|increased|decreased|always|never|most|every|research shows|studies|according|billion|million|fastest|largest|significantly/.test(s.toLowerCase());
+      return{text:s,speaker:0,isClaim,...(isClaim?{claimCategory:CATS[i%CATS.length],confidence:Math.floor(Math.random()*40+55),context:"This statement contains a verifiable assertion that could be fact-checked against primary sources."}:{})};
+    });
+    setResults(r);
+  };
+  const claims = (results||[]).filter(r=>r.isClaim);
+  return (
+    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",padding:24,gap:16}}>
+        {!results?<>
+          <p style={{fontSize:14,color:"#888",margin:0}}>Paste any text below to analyze it for claims.</p>
+          <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Paste your text, article, or transcript here..." style={{flex:1,padding:16,borderRadius:14,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#E8E8F0",fontSize:14,lineHeight:1.7,resize:"none",outline:"none",fontFamily:"inherit"}}/>
+          <Btn primary onClick={analyze} style={{alignSelf:"flex-end",opacity:text.trim()?1:.4,pointerEvents:text.trim()?"auto":"none"}}>Analyze Text</Btn>
+        </>:<>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><p style={{fontSize:14,color:"#888",margin:0}}>Found <strong style={{color:"#FFD666"}}>{claims.length}</strong> claims in {results.length} sentences.</p><div style={{display:"flex",gap:8}}>{claims.length>0&&<Btn small onClick={()=>setPanel(!panel)}>{panel?"Hide":"Show"} Claims</Btn>}<Btn small onClick={()=>{setResults(null);setText("")}}>New Analysis</Btn></div></div>
+          <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
+            {results.map((r,i)=>(
+              <div key={i} onClick={()=>{if(r.isClaim)setPanel(true)}} style={{padding:"10px 14px",borderRadius:10,cursor:r.isClaim?"pointer":"default",background:r.isClaim?"rgba(255,214,102,0.08)":"transparent",borderLeft:r.isClaim?"3px solid #FFD666":"3px solid transparent"}}>
+                <span style={{fontSize:14,lineHeight:1.65,color:r.isClaim?"#FFE8A0":"#ccc"}}>{r.text}</span>{r.isClaim&&<span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
+              </div>
+            ))}
+          </div>
+        </>}
+      </div>
+      <ClaimCardStack claims={claims} open={panel} onClose={()=>setPanel(false)}/>
+    </div>
+  );
+}
+
+// ── Nav ──
+function NavShell({children}) {
+  const {page,setPage,setAuth}=useApp();
+  const nav=[
+    {id:"dashboard",label:"Dashboard",icon:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"},
+    {id:"verify",label:"Verify",icon:"M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"},
+    {id:"sessions",label:"Sessions",icon:"M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"},
+    {id:"papers",label:"Papers",icon:"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"},
+  ];
+  const active=nav.find(n=>page.startsWith(n.id))?.id||"";
+  return (
+    <div style={{display:"flex",flexDirection:"column",height:"100vh"}}>
+      <div style={{height:56,padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(255,255,255,0.06)",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setPage("dashboard")}>
+          <div style={{width:32,height:32,borderRadius:9,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:800}}>F</div>
+          <span style={{fontSize:16,fontWeight:700}}>Footnote</span>
+        </div>
+        <div style={{display:"flex",gap:2}}>
+          {nav.map(n=><button key={n.id} onClick={()=>setPage(n.id)} style={{padding:"8px 16px",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:active===n.id?"rgba(108,99,255,0.12)":"transparent",color:active===n.id?"#A5A0FF":"#888",transition:"all 0.2s",display:"flex",alignItems:"center",gap:6}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={n.icon}/></svg>{n.label}</button>)}
+        </div>
+        <button onClick={()=>{setAuth(false);setPage("landing")}} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.04)",color:"#888"}}>Sign Out</button>
+      </div>
+      <div style={{flex:1,overflow:"hidden"}}>{children}</div>
+    </div>
+  );
+}
+
+// ── App ──
+export default function App() {
+  const [page,setPage]=useState("landing");
+  const [auth,setAuth]=useState(false);
+  const renderPage=()=>{
+    if (page === "landing") return <LandingPage />;
+    if (page === "signin") return <AuthPage mode="signin" />;
+    if (page === "signup") return <AuthPage mode="signup" />;
+    if (page.startsWith("session-")) { const id = parseInt(page.split("-")[1]); return <NavShell><SessionDetailPage id={id} /></NavShell>; }
+    const inner = { dashboard: <DashboardPage />, verify: <VerifyPage />, sessions: <SessionsPage />, papers: <PapersPage /> }[page] || <DashboardPage />;
+    return <NavShell>{inner}</NavShell>;
+  };
+  return (
+    <AppCtx.Provider value={{page,setPage,auth,setAuth}}>
+      <div style={{minHeight:"100vh",background:"linear-gradient(145deg,#0a0a14 0%,#0f0f1e 50%,#0a0a18 100%)",color:"#E8E8F0",fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif"}}>
+        {renderPage()}
+        <style>{`
+          @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+          @keyframes cardIn{from{opacity:0;transform:translateY(12px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+          ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}
+          *{box-sizing:border-box;margin:0}
+          input::placeholder,textarea::placeholder{color:#555}
+        `}</style>
+      </div>
+    </AppCtx.Provider>
   );
 }
