@@ -1,6 +1,4 @@
-torch
-transformers
-accelerate
+fastembed
 numpy
 pypdf
 django
@@ -16,7 +14,6 @@ channels-redis
 daphne
 celery
 redis
-sentence-transformers
 groq
 httpx
 speechmatics-rt>=0.5.1
