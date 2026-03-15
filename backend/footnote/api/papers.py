@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .models import Paper
-from .serializers import PaperSerializer
+from ..models import Paper
+from ..serializers import PaperSerializer
 
 class PaperDetailView(APIView):
     permission_classes = [IsAuthenticated]

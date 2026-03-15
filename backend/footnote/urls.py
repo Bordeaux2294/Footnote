@@ -2,7 +2,7 @@ from django.urls import path
 from .api.speechmatics import TemporaryKeyView
 from .api.saved_papers import SavedPaperDetailView, SavedPaperListView
 from .api.papers import PaperDetailView
-from api.sessions import SessionDetailView, SessionListView
+from .api.sessions import SessionDetailView, SessionListView
 
 urlpatterns = [
     path('token/', TemporaryKeyView.as_view()),
