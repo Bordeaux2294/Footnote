@@ -27,10 +27,6 @@ INSTALLED_APPS = [
     'dj_rest_auth.registration',
     'accounts',
     'footnote',
-    "rest_framework",
-    "corsheaders",
-    "pgvector.django",
-    "accounts",
 ]
 
 SITE_ID = 1
