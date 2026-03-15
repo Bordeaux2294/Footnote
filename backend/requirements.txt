@@ -1,4 +1,5 @@
 fastembed
+re
 numpy
 pypdf
 django
