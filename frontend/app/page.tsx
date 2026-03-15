@@ -1,9 +1,10 @@
 "use client";
 
+declare global { interface Window { google?: any; } }
 
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
 
-const AppCtx = createContext();
+const AppCtx = createContext<any>(null);
 const useApp = () => useContext(AppCtx);
 
 const SP = [
@@ -229,7 +230,54 @@ function LandingPage() {
 }
 
 function AuthPage({mode}) {
-  const {setPage,setAuth}=useApp(); const isUp=mode==="signup";
+  const {setPage,setAuth,setUser}=useApp(); const isUp=mode==="signup";
+  const googleBtnRef = useRef(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = () => {
+      window.google?.accounts.id.initialize({
+        client_id: "650211070245-jsq1p1b9e0t12ov44acjag7t1vtvg49d.apps.googleusercontent.com",
+        callback: handleGoogleResponse,
+      });
+      if (googleBtnRef.current) {
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: "filled_black",
+          size: "large",
+          width: 320,
+          text: "continue_with",
+          shape: "pill",
+        });
+      }
+    };
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    setError("");
+    try {
+      const res = await fetch("/api/auth/google/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Authentication failed"); return; }
+      localStorage.setItem("access_token", data.access);
+      localStorage.setItem("refresh_token", data.refresh);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      setAuth(true);
+      setPage("dashboard");
+    } catch {
+      setError("Network error. Please try again.");
+    }
+  };
+
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{width:400,padding:40,borderRadius:24,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",backdropFilter:"blur(20px)"}}>
@@ -239,12 +287,9 @@ function AuthPage({mode}) {
         </div>
         <h2 style={{fontSize:24,fontWeight:800,marginBottom:8}}>{isUp?"Create account":"Welcome back"}</h2>
         <p style={{fontSize:13,color:"#888",marginBottom:28}}>{isUp?"Start verifying claims in minutes":"Sign in to your account"}</p>
-        <div style={{display:"flex",flexDirection:"column",gap:16}}>
-          {isUp&&<Input label="Full Name" placeholder="Jane Doe"/>}
-          <Input label="Email" type="email" placeholder="you@example.com"/>
-          <Input label="Password" type="password" placeholder="••••••••"/>
-          {isUp&&<Input label="Confirm Password" type="password" placeholder="••••••••"/>}
-          <Btn primary onClick={()=>{setAuth(true);setPage("dashboard")}} style={{marginTop:8,padding:"12px 0",width:"100%"}}>{isUp?"Create Account":"Sign In"}</Btn>
+        <div style={{display:"flex",flexDirection:"column",gap:16,alignItems:"center"}}>
+          <div ref={googleBtnRef} />
+          {error && <p style={{fontSize:13,color:"#ff6b6b",textAlign:"center"}}>{error}</p>}
         </div>
         <p style={{fontSize:13,color:"#666",textAlign:"center",marginTop:20}}>{isUp?"Already have an account? ":"Don't have an account? "}<span style={{color:"#6C63FF",cursor:"pointer",fontWeight:600}} onClick={()=>setPage(isUp?"signin":"signup")}>{isUp?"Sign In":"Sign Up"}</span></p>
       </div>
@@ -736,7 +781,7 @@ function TextMode() {
 
 // ── Nav ──
 function NavShell({children}) {
-  const {page,setPage,setAuth}=useApp();
+  const {page,setPage,handleSignOut}=useApp();
   const nav=[
     {id:"dashboard",label:"Dashboard",icon:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"},
     {id:"verify",label:"Verify",icon:"M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"},
@@ -754,7 +799,7 @@ function NavShell({children}) {
         <div style={{display:"flex",gap:2}}>
           {nav.map(n=><button key={n.id} onClick={()=>setPage(n.id)} style={{padding:"8px 16px",borderRadius:10,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:active===n.id?"rgba(108,99,255,0.12)":"transparent",color:active===n.id?"#A5A0FF":"#888",transition:"all 0.2s",display:"flex",alignItems:"center",gap:6}}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={n.icon}/></svg>{n.label}</button>)}
         </div>
-        <button onClick={()=>{setAuth(false);setPage("landing")}} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.04)",color:"#888"}}>Sign Out</button>
+        <button onClick={handleSignOut} style={{padding:"6px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.04)",color:"#888"}}>Sign Out</button>
       </div>
       <div style={{flex:1,overflow:"hidden"}}>{children}</div>
     </div>
@@ -765,6 +810,27 @@ function NavShell({children}) {
 export default function App() {
   const [page,setPage]=useState("landing");
   const [auth,setAuth]=useState(false);
+  const [user,setUser]=useState(null);
+
+  useEffect(()=>{
+    const token = localStorage.getItem("access_token");
+    const savedUser = localStorage.getItem("user");
+    if (token && savedUser) {
+      setAuth(true);
+      setUser(JSON.parse(savedUser));
+      setPage("dashboard");
+    }
+  },[]);
+
+  const handleSignOut = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
+    setAuth(false);
+    setUser(null);
+    setPage("landing");
+  };
+
   const renderPage=()=>{
     if (page === "landing") return <LandingPage />;
     if (page === "signin") return <AuthPage mode="signin" />;
@@ -774,7 +840,7 @@ export default function App() {
     return <NavShell>{inner}</NavShell>;
   };
   return (
-    <AppCtx.Provider value={{page,setPage,auth,setAuth}}>
+    <AppCtx.Provider value={{page,setPage,auth,setAuth,user,setUser,handleSignOut}}>
       <div style={{minHeight:"100vh",background:"linear-gradient(145deg,#0a0a14 0%,#0f0f1e 50%,#0a0a18 100%)",color:"#E8E8F0",fontFamily:"'Inter',-apple-system,BlinkMacSystemFont,sans-serif"}}>
         {renderPage()}
         <style>{`
