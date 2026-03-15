@@ -39,8 +39,8 @@ const SAVED_PAPERS = [
   { id:4, title:"Neural Network Architecture Comparisons", date:"Mar 1, 2026", claims:18, status:"Pending" },
 ];
 
-const Badge = ({children,color="#FFD666",bg}) => <span style={{padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",background:bg||`${color}22`,color}}>{children}</span>;
-const Btn = ({children,primary,small,style,...p}) => <button {...p} style={{padding:small?"6px 14px":"10px 22px",borderRadius:small?8:12,border:"none",cursor:"pointer",fontSize:small?12:14,fontWeight:600,background:primary?"linear-gradient(135deg,#6C63FF,#00D2FF)":"rgba(255,255,255,0.06)",color:primary?"#fff":"#ccc",transition:"all 0.2s",...style}}>{children}</button>;
+const Badge = ({children,color="#FFD666",bg=undefined}) =><span style={{padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",background:bg||`${color}22`,color}}>{children}</span>;
+const Btn = ({children,primary,small,style,...p}:{[k:string]:any}) =><button {...p} style={{padding:small?"6px 14px":"10px 22px",borderRadius:small?8:12,border:"none",cursor:"pointer",fontSize:small?12:14,fontWeight:600,background:primary?"linear-gradient(135deg,#6C63FF,#00D2FF)":"rgba(255,255,255,0.06)",color:primary?"#fff":"#ccc",transition:"all 0.2s",...style}}>{children}</button>;
 const Card = ({children,style,onClick}) => <div onClick={onClick} style={{padding:20,borderRadius:16,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",cursor:onClick?"pointer":"default",transition:"all 0.25s",...style}}>{children}</div>;
 const Input = ({label,type="text",...p}) => <div style={{display:"flex",flexDirection:"column",gap:6}}>{label&&<label style={{fontSize:12,fontWeight:600,color:"#888"}}>{label}</label>}<input type={type} {...p} style={{padding:"10px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#E8E8F0",fontSize:14,outline:"none",...(p.style||{})}}/></div>;
 const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
@@ -86,9 +86,6 @@ function ClaimCardStack({ claims, open, onClose }) {
     </div>
   );
 
-  const claim = claims[activeIdx];
-  const confColor = claim.confidence > 80 ? "#4ADE80" : claim.confidence > 60 ? "#FFD666" : "#FF6B6B";
-  const confGrad = claim.confidence > 80 ? "linear-gradient(90deg,#4ADE80,#22C55E)" : claim.confidence > 60 ? "linear-gradient(90deg,#FFD666,#F59E0B)" : "linear-gradient(90deg,#FF6B6B,#EF4444)";
 
   return (
     <div style={{width:open?400:0,transition:"width 0.4s cubic-bezier(0.16,1,0.3,1)",overflow:"hidden",borderLeft:open?"1px solid rgba(255,255,255,0.06)":"none",flexShrink:0}}>
@@ -132,58 +129,46 @@ function ClaimCardStack({ claims, open, onClose }) {
               }}>
                 {isActive ? (
                   <div style={{padding:20,display:"flex",flexDirection:"column",gap:14,animation:"cardIn 0.35s ease",maxHeight:"100%",overflowY:"auto"}}>
-                    {/* Claim number */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{width:28,height:28,borderRadius:8,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"#FFD666"}}>#{i+1}</div>
-                        <Badge color={confColor}>{c.claimCategory}</Badge>
-                      </div>
-                      <span style={{fontSize:22,fontWeight:800,color:confColor}}>{c.confidence}%</span>
+                    {/* Claim number + source badge */}
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:28,height:28,borderRadius:8,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"#FFD666",flexShrink:0}}>#{i+1}</div>
+                      {c.claimData?.savedPaper && <Badge color="#00D2FF">{c.claimData.savedPaper}</Badge>}
                     </div>
 
                     {/* Claim Text */}
                     <div style={{padding:14,borderRadius:12,background:"rgba(255,214,102,0.05)",borderLeft:"3px solid #FFD666"}}>
                       <p style={{fontSize:13.5,lineHeight:1.65,color:"#E8E8F0",margin:0}}>"{c.text}"</p>
                       <div style={{marginTop:10,display:"flex",alignItems:"center",gap:6}}>
-                        <div style={{width:18,height:18,borderRadius:5,background:`linear-gradient(135deg,${SP[c.speaker].color},${SP[c.speaker].color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700}}>{SP[c.speaker].initial}</div>
-                        <span style={{fontSize:11,color:SP[c.speaker].color,fontWeight:600}}>{SP[c.speaker].name}</span>
+                        <div style={{width:18,height:18,borderRadius:5,background:`linear-gradient(135deg,${SP[c.speaker]?.color||"#6C63FF"},${SP[c.speaker]?.color||"#6C63FF"}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700}}>{SP[c.speaker]?.initial||"?"}</div>
+                        <span style={{fontSize:11,color:SP[c.speaker]?.color||"#6C63FF",fontWeight:600}}>{SP[c.speaker]?.name||"Speaker"}</span>
+                        {c.timestamp&&<span style={{fontSize:10,color:"#555",fontFamily:"monospace"}}>{c.timestamp}</span>}
                       </div>
                     </div>
 
-                    {/* Confidence bar */}
-                    <div>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                        <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666"}}>Confidence</span>
+                    {/* Summary */}
+                    {c.claimData?.summary && (
+                      <div>
+                        <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Summary</div>
+                        <p style={{fontSize:12.5,lineHeight:1.7,color:"#999",margin:0}}>{c.claimData.summary}</p>
                       </div>
-                      <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.06)",overflow:"hidden"}}>
-                        <div style={{height:"100%",borderRadius:3,width:`${c.confidence}%`,background:confGrad,transition:"width 0.8s cubic-bezier(0.16,1,0.3,1)"}}/>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Category chips */}
-                    <div>
-                      <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Category</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                        {CATS.map(cat => (
-                          <span key={cat} style={{padding:"4px 10px",borderRadius:7,fontSize:11,fontWeight:600,background:cat===c.claimCategory?"rgba(108,99,255,0.2)":"rgba(255,255,255,0.04)",color:cat===c.claimCategory?"#A5A0FF":"#555",border:cat===c.claimCategory?"1px solid rgba(108,99,255,0.3)":"1px solid transparent"}}>{cat}</span>
-                        ))}
+                    {/* Source link */}
+                    {c.claimData?.url && (
+                      <div>
+                        <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Scholarly Source</div>
+                        <a href={c.claimData.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12.5,color:"#00D2FF",textDecoration:"none",display:"flex",alignItems:"center",gap:6,wordBreak:"break-all"}}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                          {c.claimData.url}
+                        </a>
                       </div>
-                    </div>
-
-                    {/* Context */}
-                    <div>
-                      <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Context</div>
-                      <p style={{fontSize:12.5,lineHeight:1.7,color:"#999",margin:0}}>{c.context}</p>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{padding:16,opacity:0.7}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <div style={{width:22,height:22,borderRadius:6,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#FFD666"}}>#{i+1}</div>
-                        <Badge color={c.confidence>80?"#4ADE80":c.confidence>60?"#FFD666":"#FF6B6B"}>{c.claimCategory}</Badge>
-                      </div>
-                      <span style={{fontSize:14,fontWeight:700,color:c.confidence>80?"#4ADE80":c.confidence>60?"#FFD666":"#FF6B6B"}}>{c.confidence}%</span>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                      <div style={{width:22,height:22,borderRadius:6,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#FFD666",flexShrink:0}}>#{i+1}</div>
+                      {c.claimData?.savedPaper && <span style={{fontSize:10,fontWeight:600,color:"#00D2FF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.claimData.savedPaper}</span>}
                     </div>
                     <p style={{fontSize:12,lineHeight:1.5,color:"#aaa",margin:0,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{c.text}"</p>
                   </div>
@@ -393,35 +378,39 @@ function VerifyPage() {
 
 function LiveMode() {
   const [rec, setRec] = useState(false);
-  const [segs, setSegs] = useState<any[]>([]);
+  const [paused, setPaused] = useState(false);
+  const [sentences, setSentences] = useState<any[]>([]);
   const [partialText, setPartialText] = useState("");
   const [panel, setPanel] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<any>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const elapsedRef = useRef(0);
+  const pausedRef = useRef(false);
   const speakerMapRef = useRef<Record<string, number>>({});
   const nextSpIdxRef = useRef(0);
+  // Maps a merged sentenceId → the parent sentenceId it was merged into
+  const mergeMapRef = useRef<Record<string, string>>({});
 
-  const claims = segs.filter(s => s.isClaim);
+  const claims = sentences.filter(s => s.claim === true);
 
+  // Timer pauses when recording is paused
   useEffect(() => {
-    if (!rec) return;
+    if (!rec || paused) return;
     const i = setInterval(() => { elapsedRef.current += 1; setElapsed(elapsedRef.current); }, 1000);
     return () => clearInterval(i);
-  }, [rec]);
+  }, [rec, paused]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [segs, partialText]);
+  }, [sentences, partialText]);
 
-  const isClaimText = (text: string) => /\d+%|grew|increased|decreased|always|never|most|every|research shows|studies|according|billion|million|fastest|largest|significantly/i.test(text);
-
-  // Map Speechmatics speaker IDs ("S1","S2"…) to SP array indices, in order of first appearance
   const getSpeakerIdx = useCallback((speakerId: string) => {
     if (!(speakerId in speakerMapRef.current)) {
       speakerMapRef.current[speakerId] = nextSpIdxRef.current % SP.length;
@@ -430,15 +419,13 @@ function LiveMode() {
     return speakerMapRef.current[speakerId];
   }, []);
 
-  // Join result tokens respecting punctuation attachment (no space before ".", ",", etc.)
   const joinResults = (results: any[]) => {
     let text = "";
     for (const r of results) {
       const content = r.alternatives?.[0]?.content || "";
       if (!content) continue;
       if (r.type === "punctuation") {
-        const attaches = r.attaches_to || "previous";
-        text += attaches === "next" ? " " + content : content;
+        text += r.attaches_to === "next" ? " " + content : content;
       } else {
         text = text ? text + " " + content : content;
       }
@@ -446,50 +433,107 @@ function LiveMode() {
     return text.trim();
   };
 
+  const resetState = useCallback(() => {
+    setSentences([]); setPartialText(""); setPanel(false);
+    setElapsed(0); elapsedRef.current = 0;
+    setError(null); setShowSaveModal(false);
+    speakerMapRef.current = {}; nextSpIdxRef.current = 0;
+    mergeMapRef.current = {};
+    pausedRef.current = false; setPaused(false);
+  }, []);
+
+  // POST a sentence to the backend; update its claim status when the response arrives.
+  // Resolves through mergeMapRef in case this sentence was merged into a parent sentence.
+  const checkClaim = useCallback(async (sentence: any) => {
+    const resolvedId = mergeMapRef.current[sentence.sentenceId] ?? sentence.sentenceId;
+    try {
+      const res = await fetch("/api/check-sentence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sentenceId: resolvedId, speakerId: sentence.speakerId, text: sentence.text, timestamp: sentence.timestamp }),
+      });
+      const result = await res.json();
+      setSentences(prev => prev.map(s =>
+        s.sentenceId === resolvedId
+          ? { ...s, claim: result.claim, ...(result.claimData ? { claimData: result.claimData } : {}) }
+          : s
+      ));
+      if (result.claim) setPanel(true);
+    } catch {
+      setSentences(prev => prev.map(s => s.sentenceId === resolvedId ? { ...s, claim: false } : s));
+    }
+  }, []);
+
   const stopRecording = useCallback(() => {
     if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
     if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null; }
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop()); streamRef.current = null; }
     if (clientRef.current) { try { clientRef.current.stopRecognition({ noTimeout: true }); } catch {} clientRef.current = null; }
-    speakerMapRef.current = {};
-    nextSpIdxRef.current = 0;
-    setRec(false);
-    setPartialText("");
+    speakerMapRef.current = {}; nextSpIdxRef.current = 0; mergeMapRef.current = {};
+    setRec(false); setPartialText("");
   }, []);
+
+  const handleStop = useCallback(() => { stopRecording(); setShowSaveModal(true); }, [stopRecording]);
+
+  const togglePause = useCallback(() => {
+    const next = !pausedRef.current;
+    pausedRef.current = next;
+    setPaused(next);
+    if (next) setPartialText("");
+  }, []);
+
+  const saveSession = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sentences: sentences.map(s => ({
+            sentenceId: s.sentenceId, speakerId: s.speakerId,
+            text: s.text, timestamp: s.timestamp,
+            claim: s.claim ?? false,
+            ...(s.claimData ? { claimData: s.claimData } : {}),
+          })),
+          createdAt: new Date().toISOString(),
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Save failed");
+      resetState();
+    } catch (err) {
+      setError((err instanceof Error ? err.message : null) || "Failed to save session");
+      setShowSaveModal(false);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const startRecording = useCallback(async () => {
     try {
-      setError(null);
-      elapsedRef.current = 0;
-      setElapsed(0);
+      setError(null); elapsedRef.current = 0; setElapsed(0);
+      pausedRef.current = false; setPaused(false);
 
-      // Fetch short-lived JWT from server (keeps API key off client)
-      const res = await fetch("/api/speechmatics-token");
-      const data = await res.json();
-      console.log("Got token data:", data);
-      if (data.error) throw new Error(data.error);
+      const tokenRes = await fetch("/api/speechmatics-token");
+      const tokenData = await tokenRes.json();
+      if (tokenData.error) throw new Error(tokenData.error);
 
-      // Mic access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       streamRef.current = stream;
 
-      // Build Speechmatics client
       const { RealtimeClient } = await import("@speechmatics/real-time-client");
       const client = new RealtimeClient();
       clientRef.current = client;
 
       client.addEventListener("receiveMessage", ({ data }) => {
-        console.log("Received message:", data);
         if (data.message === "AddPartialTranscript") {
-          // Partials: low-latency provisional — use pre-formatted transcript string
-          setPartialText(data.metadata?.transcript || "");
+          if (!pausedRef.current) setPartialText(data.metadata?.transcript || "");
         } else if (data.message === "AddTranscript") {
-          // Finals: group results by speaker, append to existing segment if same speaker continues
           setPartialText("");
           const results: any[] = data.results || [];
           if (!results.length) return;
 
-          // Group consecutive tokens by their speaker label
+          // Group consecutive tokens by speaker label
           const groups: { speakerId: string; results: any[] }[] = [];
           for (const r of results) {
             const sid = r.alternatives?.[0]?.speaker || "S1";
@@ -500,45 +544,44 @@ function LiveMode() {
             }
           }
 
-          // Determine up-front whether any group is a claim (avoids calling setPanel inside setSegs)
-          const groupTexts = groups.map(g => ({ speakerIdx: getSpeakerIdx(g.speakerId), text: joinResults(g.results) }));
-          const hasNewClaim = groupTexts.some(g => isClaimText(g.text));
+          // Each speaker group becomes one sentence; claim:null = pending backend check
+          const newSentences = groups
+            .map(g => ({
+              sentenceId: Math.random().toString(36).slice(2) + Date.now().toString(36),
+              speakerId: g.speakerId,
+              speaker: getSpeakerIdx(g.speakerId),
+              text: joinResults(g.results),
+              timestamp: fmt(elapsedRef.current),
+              claim: null as null | boolean,
+            }))
+            .filter(s => s.text);
 
-          setSegs(prev => {
-            const updated = [...prev];
-            for (const { speakerIdx, text } of groupTexts) {
-              if (!text) continue;
-              const isClaim = isClaimText(text);
-              const last = updated[updated.length - 1];
-              // Append to the last segment when the speaker is the same and neither is a claim
-              if (last && last.speaker === speakerIdx && !last.isClaim && !isClaim) {
-                updated[updated.length - 1] = { ...last, text: last.text + " " + text };
-              } else {
-                updated.push({
-                  text,
-                  speaker: speakerIdx,
-                  timestamp: fmt(elapsedRef.current),
-                  isClaim,
-                  ...(isClaim ? {
-                    claimCategory: CATS[Math.floor(Math.random() * CATS.length)],
-                    confidence: Math.floor(Math.random() * 40 + 55),
-                    context: "This statement contains a verifiable assertion that could be fact-checked against primary sources.",
-                  } : {}),
-                });
+          if (newSentences.length) {
+            // Merge into the previous sentence when the same speaker continues,
+            // recording the mapping so checkClaim can still update the right row.
+            setSentences(prev => {
+              const updated = [...prev];
+              for (const ns of newSentences) {
+                const last = updated[updated.length - 1];
+                if (last && last.speaker === ns.speaker && last.claim !== true) {
+                  mergeMapRef.current[ns.sentenceId] = last.sentenceId;
+                  updated[updated.length - 1] = { ...last, text: last.text + " " + ns.text };
+                } else {
+                  updated.push(ns);
+                }
               }
-            }
-            return updated;
-          });
-          if (hasNewClaim) setPanel(true);
+              return updated;
+            });
+            newSentences.forEach(checkClaim);
+          }
         } else if (data.message === "EndOfTranscript") {
-          setRec(false); setPartialText("");
+          setRec(false); setPartialText(""); setShowSaveModal(true);
         } else if (data.message === "Error") {
           setError(`Speechmatics: ${data.reason || JSON.stringify(data)}`);
           stopRecording();
         }
       });
 
-      // Capture PCM via ScriptProcessor so we control sample format
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
       const source = audioContext.createMediaStreamSource(stream);
@@ -546,7 +589,7 @@ function LiveMode() {
       processorRef.current = processor;
 
       processor.onaudioprocess = (e) => {
-        if (!clientRef.current) return;
+        if (!clientRef.current || pausedRef.current) return;
         const float32 = e.inputBuffer.getChannelData(0);
         const int16 = new Int16Array(float32.length);
         for (let i = 0; i < float32.length; i++) {
@@ -555,73 +598,121 @@ function LiveMode() {
         clientRef.current.sendAudio(int16.buffer);
       };
 
-      // Wait for the WebSocket handshake to complete before connecting audio graph
-      await client.start(data.jwt, {
+      await client.start(tokenData.jwt, {
         transcription_config: {
-          language: "en",
-          operating_point: "enhanced",
-          max_delay: 2.0,
-          enable_partials: true,       // emit low-latency partial transcripts
+          language: "en", operating_point: "enhanced",
+          max_delay: 2.0, enable_partials: true, diarization: "speaker",
           transcript_filtering_config: { remove_disfluencies: true },
-          diarization: "speaker"
-
         },
-        audio_format: {
-          type: "raw" as const,
-          encoding: "pcm_s16le" as const,
-          sample_rate: audioContext.sampleRate,
-        },
+        audio_format: { type: "raw" as const, encoding: "pcm_s16le" as const, sample_rate: audioContext.sampleRate },
       });
 
-      // Connect audio graph only after WebSocket is open and ready
       const silentDest = audioContext.createMediaStreamDestination();
       source.connect(processor);
       processor.connect(silentDest);
-
       setRec(true);
     } catch (err) {
       setError((err instanceof Error ? err.message : null) || "Failed to start recording");
       stopRecording();
     }
-  }, [stopRecording]);
+  }, [getSpeakerIdx, checkClaim, stopRecording]);
 
-  const toggle = () => { if (rec) stopRecording(); else startRecording(); };
+  // ── Pre-recording: centered mic ──
+  if (!rec && !paused && sentences.length === 0 && !showSaveModal) {
+    return (
+      <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:20}}>
+        {error && <div style={{padding:"10px 20px",borderRadius:10,background:"rgba(255,68,68,0.1)",color:"#FF6B6B",fontSize:13,marginBottom:4}}>{error}</div>}
+        <button onClick={startRecording} style={{width:96,height:96,borderRadius:"50%",border:"none",cursor:"pointer",background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 0 16px rgba(108,99,255,0.06),0 0 48px rgba(108,99,255,0.35)",transition:"all 0.3s"}}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+        </button>
+        <p style={{fontSize:14,color:"#555",letterSpacing:"0.03em"}}>Click to start recording</p>
+      </div>
+    );
+  }
 
+  // ── Recording / post-recording view ──
   return (
-    <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+    <div style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
-        <div style={{padding:"12px 24px",display:"flex",alignItems:"center",gap:16,borderBottom:"1px solid rgba(255,255,255,0.04)"}}>
-          <button onClick={toggle} style={{width:44,height:44,borderRadius:"50%",border:"none",cursor:"pointer",background:rec?"linear-gradient(135deg,#FF4466,#FF6B6B)":"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:rec?"0 0 24px rgba(255,68,102,0.4)":"0 0 24px rgba(108,99,255,0.3)",transition:"all 0.3s"}}>
-            {rec?<div style={{width:14,height:14,borderRadius:3,background:"#fff"}}/>:<svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>}
-          </button>
-          <div style={{flex:1}}><WaveBar active={rec}/></div>
-          <span style={{fontFamily:"monospace",fontSize:13,color:"#888"}}>{fmt(elapsed)}</span>
-          <Badge color="#FFD666">{claims.length} claims</Badge>
-          {rec&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:16,background:"rgba(108,99,255,0.12)"}}><Pulse color="#6C63FF" size={8}/><span style={{fontSize:12,fontWeight:600,color:"#A5A0FF"}}>Listening</span></div>}
-        </div>
-        {error&&<div style={{padding:"10px 24px",background:"rgba(255,68,68,0.08)",borderBottom:"1px solid rgba(255,68,68,0.15)",fontSize:13,color:"#FF6B6B"}}>{error}</div>}
-        <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"20px 24px",display:"flex",flexDirection:"column",gap:4}}>
-          {segs.length===0&&!rec&&<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",opacity:.4}}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#6C63FF" strokeWidth="1.5" strokeLinecap="round"><path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg><p style={{fontSize:14,color:"#666",marginTop:12}}>Press record to begin</p></div>}
-          {segs.map((seg,i)=>{const sp=SP[seg.speaker]||SP[0];const prev=i>0?segs[i-1].speaker:-1;const showH=seg.speaker!==prev;return(
-            <div key={i} style={{animation:"fadeIn 0.3s ease"}}>
-              {showH&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:i>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${sp.color},${sp.color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{sp.initial}</div><span style={{fontSize:13,fontWeight:600,color:sp.color}}>{sp.name}</span><span style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{seg.timestamp}</span></div>}
-              <div onClick={()=>{if(seg.isClaim)setPanel(true)}} style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:seg.isClaim?"pointer":"default",background:seg.isClaim?"rgba(255,214,102,0.08)":"transparent",borderLeft:seg.isClaim?"3px solid #FFD666":"3px solid transparent"}}>
-                <span style={{fontSize:14,lineHeight:1.65,color:seg.isClaim?"#FFE8A0":"#ccc"}}>{seg.text}</span>{seg.isClaim&&<span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
-              </div>
+        {error && <div style={{padding:"10px 24px",background:"rgba(255,68,68,0.08)",borderBottom:"1px solid rgba(255,68,68,0.15)",fontSize:13,color:"#FF6B6B",flexShrink:0}}>{error}</div>}
+
+        {/* Transcript scroll area */}
+        <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"24px 28px",display:"flex",flexDirection:"column",gap:2}}>
+          {sentences.length === 0 && (
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",opacity:.35}}>
+              <p style={{fontSize:14,color:"#666"}}>Listening…</p>
             </div>
-          );})}
-          {/* Partial transcript: shown in-progress, replaced by final when stable */}
-          {rec&&partialText&&(
-            <div style={{animation:"fadeIn 0.3s ease"}}>
-              {(segs.length===0||segs[segs.length-1]?.speaker!==0)&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:segs.length>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${SP[0].color},${SP[0].color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{SP[0].initial}</div><span style={{fontSize:13,fontWeight:600,color:SP[0].color}}>{SP[0].name}</span><Pulse color={SP[0].color} size={8}/></div>}
+          )}
+          {sentences.map((s, i) => {
+            const sp = SP[s.speaker] || SP[0];
+            const showHeader = i === 0 || sentences[i - 1].speaker !== s.speaker;
+            return (
+              <div key={s.sentenceId} style={{animation:"fadeIn 0.3s ease"}}>
+                {showHeader && (
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:i>0?20:0,marginBottom:6}}>
+                    <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${sp.color},${sp.color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{sp.initial}</div>
+                    <span style={{fontSize:13,fontWeight:600,color:sp.color}}>{sp.name}</span>
+                    <span style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{s.timestamp}</span>
+                  </div>
+                )}
+                <div
+                  onClick={() => { if (s.claim === true) setPanel(true); }}
+                  style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:s.claim===true?"pointer":"default",background:s.claim===true?"rgba(255,214,102,0.08)":"transparent",borderLeft:s.claim===true?"3px solid #FFD666":s.claim===null?"3px solid rgba(108,99,255,0.25)":"3px solid transparent",transition:"border-color 0.5s,background 0.5s"}}
+                >
+                  <span style={{fontSize:14,lineHeight:1.65,color:s.claim===true?"#FFE8A0":"#ccc"}}>{s.text}</span>
+                  {s.claim === true && <span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
+                  {s.claim === null && <span style={{marginLeft:8,display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:"#444"}}><Pulse color="#6C63FF" size={6}/>checking</span>}
+                </div>
+              </div>
+            );
+          })}
+          {/* Partial (provisional) text */}
+          {rec && !paused && partialText && (
+            <div style={{animation:"fadeIn 0.2s ease",marginTop:4}}>
               <div style={{padding:"8px 12px",marginLeft:36,borderRadius:10}}>
-                <span style={{fontSize:14,lineHeight:1.65,color:"#666",fontStyle:"italic"}}>{partialText}<span style={{animation:"blink 1s infinite",color:SP[0].color}}>|</span></span>
+                <span style={{fontSize:14,lineHeight:1.65,color:"#444",fontStyle:"italic"}}>{partialText}<span style={{animation:"blink 1s infinite",color:"#6C63FF"}}>|</span></span>
               </div>
             </div>
           )}
         </div>
+
+        {/* Bottom controls */}
+        <div style={{padding:"12px 24px",borderTop:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+          <WaveBar active={rec && !paused}/>
+          <span style={{fontFamily:"monospace",fontSize:13,color:"#888",minWidth:42}}>{fmt(elapsed)}</span>
+          <div style={{flex:1}}/>
+          <Badge color="#FFD666">{claims.length} claim{claims.length!==1?"s":""}</Badge>
+          {paused && <div style={{display:"flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:20,background:"rgba(255,214,102,0.08)",border:"1px solid rgba(255,214,102,0.2)"}}><div style={{width:6,height:6,borderRadius:"50%",background:"#FFD666"}}/><span style={{fontSize:11,fontWeight:600,color:"#FFD666"}}>Paused</span></div>}
+          <Btn small onClick={togglePause} style={{minWidth:90,background:paused?"rgba(108,99,255,0.15)":"rgba(255,255,255,0.06)",color:paused?"#A5A0FF":"#ccc"}}>
+            {paused ? "▶ Resume" : "⏸ Pause"}
+          </Btn>
+          <Btn small onClick={handleStop} style={{background:"rgba(255,68,102,0.1)",color:"#FF6B6B"}}>⏹ Stop</Btn>
+        </div>
       </div>
-      <ClaimCardStack claims={claims} open={panel} onClose={()=>setPanel(false)}/>
+
+      <ClaimCardStack claims={claims} open={panel} onClose={() => setPanel(false)}/>
+
+      {/* Save session modal */}
+      {showSaveModal && (
+        <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50,backdropFilter:"blur(4px)"}}>
+          <div style={{width:420,padding:36,borderRadius:24,background:"rgba(14,14,26,0.98)",border:"1px solid rgba(255,255,255,0.1)",boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+            <h3 style={{fontSize:22,fontWeight:800,margin:"0 0 6px"}}>Save this session?</h3>
+            <p style={{fontSize:13,color:"#666",margin:"0 0 24px"}}>Your recording has stopped. Would you like to save it?</p>
+            <div style={{display:"flex",gap:24,marginBottom:24}}>
+              <div style={{textAlign:"center"}}><div style={{fontSize:28,fontWeight:800,color:"#6C63FF"}}>{sentences.length}</div><div style={{fontSize:11,color:"#666",marginTop:2}}>Sentences</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:28,fontWeight:800,color:"#FFD666"}}>{claims.length}</div><div style={{fontSize:11,color:"#666",marginTop:2}}>Claims</div></div>
+              <div style={{textAlign:"center"}}><div style={{fontSize:28,fontWeight:800,color:"#00D2FF"}}>{fmt(elapsed)}</div><div style={{fontSize:11,color:"#666",marginTop:2}}>Duration</div></div>
+            </div>
+            {error && <div style={{padding:"8px 12px",borderRadius:8,background:"rgba(255,68,68,0.08)",color:"#FF6B6B",fontSize:12,marginBottom:16}}>{error}</div>}
+            <div style={{display:"flex",gap:12}}>
+              <Btn primary onClick={saveSession} style={{flex:1,padding:"12px 0",opacity:saving?.5:1,pointerEvents:saving?"none":"auto"}}>
+                {saving ? "Saving…" : "Save Session"}
+              </Btn>
+              <Btn onClick={() => { setShowSaveModal(false); resetState(); }} style={{flex:1,padding:"12px 0"}}>Discard</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
