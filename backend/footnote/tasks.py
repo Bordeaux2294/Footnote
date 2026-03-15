@@ -76,7 +76,7 @@ def verify_claim(claim_id: int):
         claim.save()
 
         # create ClaimSource records
-        source_verdicts = {s['index']: s['supports'] for s in verdict_data.get('sources', [])}
+        #source_verdicts = {s['index']: s['supports'] for s in verdict_data.get('sources', [])}
 
         for i, item in enumerate(retrieved):
             ClaimSource.objects.create(
@@ -84,7 +84,7 @@ def verify_claim(claim_id: int):
                 paper=item['chunk'].paper,
                 similarity_score=item['similarity'],
                 excerpt=item['chunk'].content,
-                supports=source_verdicts.get(i, True)
+                supports= verdict_data.get('sources', [])#source_verdicts.get(i, True)
             )
 
     # notify frontend verdict is ready
