@@ -2,6 +2,8 @@ fastembed
 numpy
 pypdf
 django
+django-allauth
+dj-rest-auth[with_social]
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
