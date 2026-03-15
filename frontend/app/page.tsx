@@ -397,8 +397,13 @@ function LiveMode() {
   const nextSpIdxRef = useRef(0);
   // Maps a merged sentenceId → the parent sentenceId it was merged into
   const mergeMapRef = useRef<Record<string, string>>({});
+  // Mirrors sentences state so the AddTranscript handler can read current sentences synchronously
+  const sentencesRef = useRef<any[]>([]);
 
   const claims = sentences.filter(s => s.claim === true);
+
+  // Keep sentencesRef in sync so event listeners always see the latest sentences
+  useEffect(() => { sentencesRef.current = sentences; }, [sentences]);
 
   // Timer pauses when recording is paused
   useEffect(() => {
@@ -428,27 +433,59 @@ function LiveMode() {
     pausedRef.current = false; setPaused(false);
   }, []);
 
-  // POST a sentence to the backend; update its claim status when the response arrives.
-  // Resolves through mergeMapRef in case this sentence was merged into a parent sentence.
-  const checkClaim = useCallback(async (sentence: any) => {
-    const resolvedId = mergeMapRef.current[sentence.sentenceId] ?? sentence.sentenceId;
+  // Sends a sentence to /api/process-sentence, which splits it by full stops and
+  // checks each part for claims. Updates the matching row with the result.
+ const checkClaim = useCallback(async (sentence: any) => {
+    const resolvedId = sentence.sentenceId;
+    console.log("[checkClaim] Starting claim check", { resolvedId, sentence });
+
     try {
-      const res = await fetch("/api/check-sentence", {
+      console.log("[checkClaim] Sending request to /api/process-sentence", {
+        sentenceId: resolvedId,
+        speakerId: sentence.speakerId,
+        text: sentence.text,
+        timestamp: sentence.timestamp,
+      });
+
+      const res = await fetch("/api/process-sentence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sentenceId: resolvedId, speakerId: sentence.speakerId, text: sentence.text, timestamp: sentence.timestamp }),
       });
+
+      console.log("[checkClaim] Response received", { status: res.status, ok: res.ok, statusText: res.statusText });
+
       const result = await res.json();
-      setSentences(prev => prev.map(s =>
-        s.sentenceId === resolvedId
-          ? { ...s, claim: result.claim, ...(result.claimData ? { claimData: result.claimData } : {}) }
-          : s
-      ));
-      if (result.claim) setPanel(true);
-    } catch {
-      setSentences(prev => prev.map(s => s.sentenceId === resolvedId ? { ...s, claim: false } : s));
+      console.log("[checkClaim] Parsed response JSON", result);
+      console.log("[checkClaim] Claim result:", result.claim, "| Has claimData:", !!result.claimData);
+
+      setSentences(prev => {
+        const updated = prev.map(s =>
+          s.sentenceId === resolvedId
+            ? { ...s, claim: result.claim, ...(result.claimData ? { claimData: result.claimData } : {}) }
+            : s
+        );
+        console.log("[checkClaim] setSentences — before:", prev, "after:", updated);
+        return updated;
+      });
+
+      if (result.claim) {
+        console.log("[checkClaim] Claim is truthy — opening panel");
+        setPanel(true);
+      } else {
+        console.log("[checkClaim] Claim is falsy — panel not opened");
+      }
+    } catch (err) {
+      console.error("[checkClaim] Error during fetch or processing", err);
+      setSentences(prev => {
+        const updated = prev.map(s => s.sentenceId === resolvedId ? { ...s, claim: false } : s);
+        console.log("[checkClaim] setSentences after error — before:", prev, "after:", updated);
+        return updated;
+      });
     }
   }, []);
+
+  
 
   const stopRecording = useCallback(() => {
     if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
@@ -532,28 +569,26 @@ function LiveMode() {
             timestamp: fmt(elapsedRef.current),
             claim: null as null | boolean,
           };
-          // Merge consecutive same-speaker sentences for display;
-          // resolve the correct row id and full accumulated text for the backend call
+          // Compute the merge decision synchronously using the ref so that resolvedId
+          // and fullText are correct before checkClaim is called (setSentences updaters
+          // run lazily during the next render, too late for the values to be used here)
+          const current = sentencesRef.current;
+          const last = current[current.length - 1];
           let resolvedId = sentenceId;
           let fullText = sentenceText;
           console.log("fullText", fullText);
-          setSentences(prev => {
-            const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last && last.speaker === speakerIdx && last.claim !== true) {
-              resolvedId = last.sentenceId;
-              fullText = last.text + " " + sentenceText;
-              mergeMapRef.current[sentenceId] = last.sentenceId;
-              updated[updated.length - 1] = { ...last, text: fullText };
-            } else {
-              updated.push(newSentence);
-            }
-
-            console.log("updated", updated);
-
-            return updated;
-          });
-          // Send the complete sentence (full merged text) to the backend
+          let updatedSentences: any[];
+          if (last && last.speaker === speakerIdx && last.claim !== true) {
+            resolvedId = last.sentenceId;
+            fullText = last.text + " " + sentenceText;
+            mergeMapRef.current[sentenceId] = last.sentenceId;
+            updatedSentences = [...current.slice(0, -1), { ...last, text: fullText }];
+          } else {
+            updatedSentences = [...current, newSentence];
+          }
+          console.log("updated", updatedSentences);
+          setSentences(updatedSentences);
+          // resolvedId and fullText are now correct — send the complete sentence to the backend
           checkClaim({ ...newSentence, sentenceId: resolvedId, text: fullText });
         } else if (data.message === "EndOfTranscript") {
           setRec(false); setPartialText(""); setShowSaveModal(true);
