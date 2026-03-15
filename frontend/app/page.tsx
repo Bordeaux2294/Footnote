@@ -202,29 +202,131 @@ function ClaimCardStack({ claims, open, onClose }) {
 function LandingPage() {
   const {setPage}=useApp();
   const [glow,setGlow]=useState(false);
+  const [visibleFeatures,setVisibleFeatures]=useState<number[]>([]);
+
+  const FEATURES = [
+    {num:"01",icon:"\uD83C\uDF99\uFE0F",title:"Multi-speaker transcription",desc:"Each voice is identified and labeled in real time. No post-processing. No waiting.",color:"#6C63FF"},
+    {num:"02",icon:"\uD83D\uDD0D",title:"Live claim detection",desc:"Claims are automatically flagged as they\u2019re spoken, with source context surfaced instantly.",color:"#00D2FF"},
+    {num:"03",icon:"\uD83D\uDC65",title:"Audience sync",desc:"Everyone in the room follows along on their device. The transcript updates live for all connected viewers.",color:"#4ADE80"},
+    {num:"04",icon:"\uD83D\uDCCA",title:"Speaker analytics",desc:"See who spoke most, which claims were contested, and a full breakdown after the session ends.",color:"#FFD666"},
+    {num:"05",icon:"\uD83D\uDCC4",title:"Full session export",desc:"Download a clean, annotated transcript with all flagged claims and their sourced context attached.",color:"#FF6B9D"},
+  ];
+
   useEffect(()=>{const i=setInterval(()=>setGlow(g=>!g),2000);return()=>clearInterval(i);},[]);
+  useEffect(()=>{
+    const timers=FEATURES.map((_,i)=>setTimeout(()=>setVisibleFeatures(v=>[...v,i]),400+i*150));
+    return()=>timers.forEach(clearTimeout);
+  },[]);
+
   return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:40,position:"relative",overflow:"hidden"}}>
-      <div style={{position:"absolute",width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,rgba(108,99,255,0.08) 0%,transparent 70%)",top:"-10%",left:"-10%",animation:"float 8s ease-in-out infinite"}}/>
-      <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,210,255,0.06) 0%,transparent 70%)",bottom:"-10%",right:"-10%",animation:"float 8s ease-in-out infinite reverse"}}/>
-      <div style={{position:"relative",zIndex:1,maxWidth:700}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginBottom:32}}>
-          <div style={{width:56,height:56,borderRadius:16,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:800,boxShadow:glow?"0 0 40px rgba(108,99,255,0.5)":"0 0 20px rgba(108,99,255,0.2)",transition:"box-shadow 2s"}}>F</div>
-          <span style={{fontSize:42,fontWeight:800,letterSpacing:"-0.03em",background:"linear-gradient(135deg,#E8E8F0,#A5A0FF)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Footnote</span>
+    <div style={{minHeight:"100vh",background:"#08080F",color:"#E8E8F0",overflowX:"hidden"}}>
+      {/* Background effects */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
+        <div style={{position:"absolute",width:800,height:800,borderRadius:"50%",background:"radial-gradient(circle,rgba(108,99,255,0.07) 0%,transparent 70%)",top:"-20%",left:"-10%",animation:"float 8s ease-in-out infinite"}}/>
+        <div style={{position:"absolute",width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,rgba(0,210,255,0.05) 0%,transparent 70%)",top:"30%",right:"-15%",animation:"float 10s ease-in-out infinite reverse"}}/>
+        <div style={{position:"absolute",width:500,height:500,borderRadius:"50%",background:"radial-gradient(circle,rgba(74,222,128,0.04) 0%,transparent 70%)",bottom:"-10%",left:"20%",animation:"float 12s ease-in-out infinite"}}/>
+      </div>
+
+      {/* Nav */}
+      <nav style={{position:"relative",zIndex:10,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 48px",maxWidth:1200,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:40,height:40,borderRadius:12,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,boxShadow:glow?"0 0 30px rgba(108,99,255,0.5)":"0 0 15px rgba(108,99,255,0.2)",transition:"box-shadow 2s"}}>F</div>
+          <span style={{fontSize:22,fontWeight:800,letterSpacing:"-0.03em"}}>Footnote</span>
         </div>
-        <p style={{fontSize:22,lineHeight:1.5,color:"#aaa",marginBottom:12,fontWeight:300}}>Real-time audio transcription with AI-powered claim detection and speaker identification.</p>
-        <p style={{fontSize:15,lineHeight:1.6,color:"#666",marginBottom:48,maxWidth:520,margin:"0 auto 48px"}}>Footnote listens, transcribes, and highlights every verifiable claim — so you can focus on what matters.</p>
+        <div style={{display:"flex",gap:12}}>
+          <Btn onClick={()=>setPage("signin")} style={{padding:"10px 24px",fontSize:14}}>Sign In</Btn>
+          <Btn primary onClick={()=>setPage("signup")} style={{padding:"10px 24px",fontSize:14}}>Get Started</Btn>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section style={{position:"relative",zIndex:1,textAlign:"center",padding:"100px 24px 80px",maxWidth:900,margin:"0 auto"}}>
+        <div style={{display:"inline-flex",alignItems:"center",gap:8,padding:"6px 16px",borderRadius:100,background:"rgba(108,99,255,0.1)",border:"1px solid rgba(108,99,255,0.2)",marginBottom:32,fontSize:13,color:"#A5A0FF",fontWeight:600}}>
+          <Pulse color="#6C63FF" size={8}/>Live transcription &middot; Fact verification &middot; Real-time
+        </div>
+        <h1 style={{fontSize:"clamp(40px,6vw,72px)",fontWeight:800,lineHeight:1.05,letterSpacing:"-0.04em",margin:"0 0 24px"}}>
+          Every claim.{"\n"}
+          <span style={{background:"linear-gradient(135deg,#6C63FF,#00D2FF)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Accountable,</span>
+          <br/>instantly.
+        </h1>
+        <p style={{fontSize:"clamp(16px,2vw,20px)",lineHeight:1.6,color:"#888",maxWidth:560,margin:"0 auto 48px",fontWeight:300}}>
+          Footnote listens, transcribes, and highlights every verifiable claim in real time — so you can focus on what matters.
+        </p>
         <div style={{display:"flex",gap:16,justifyContent:"center",flexWrap:"wrap"}}>
-          <Btn primary onClick={()=>setPage("signup")} style={{padding:"14px 36px",fontSize:16,borderRadius:14}}>Get Started</Btn>
-          <Btn onClick={()=>setPage("signin")} style={{padding:"14px 36px",fontSize:16,borderRadius:14}}>Sign In</Btn>
+          <Btn primary onClick={()=>setPage("signup")} style={{padding:"16px 40px",fontSize:16,borderRadius:14,boxShadow:"0 0 30px rgba(108,99,255,0.3)"}}>Get Started Free</Btn>
+          <Btn onClick={()=>setPage("signin")} style={{padding:"16px 40px",fontSize:16,borderRadius:14}}>Sign In</Btn>
         </div>
-        <div style={{display:"flex",gap:40,justifyContent:"center",marginTop:64,flexWrap:"wrap"}}>
-          {[["Live Transcription","Real-time speech-to-text with speaker diarization"],["Claim Detection","AI highlights verifiable statements automatically"],["Context Analysis","Instant context and confidence scoring for every claim"]].map(([t,d])=>(
-            <div key={t} style={{maxWidth:180,textAlign:"center"}}><div style={{fontSize:14,fontWeight:700,color:"#E8E8F0",marginBottom:6}}>{t}</div><div style={{fontSize:12,color:"#666",lineHeight:1.5}}>{d}</div></div>
+      </section>
+
+      {/* Demo preview */}
+      <section style={{position:"relative",zIndex:1,maxWidth:900,margin:"0 auto 120px",padding:"0 24px"}}>
+        <div style={{borderRadius:20,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.02)",backdropFilter:"blur(20px)",overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.4)"}}>
+          {/* Window chrome */}
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:12,height:12,borderRadius:"50%",background:"#FF5F57"}}/>
+            <div style={{width:12,height:12,borderRadius:"50%",background:"#FEBC2E"}}/>
+            <div style={{width:12,height:12,borderRadius:"50%",background:"#28C840"}}/>
+            <span style={{marginLeft:12,fontSize:12,color:"#555"}}>Live Session — Q4 Strategy Meeting</span>
+          </div>
+          {/* Transcript lines */}
+          <div style={{padding:"24px 28px",display:"flex",flexDirection:"column",gap:12}}>
+            {DEMO.slice(0,4).map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",opacity:0,animation:`fadeSlideIn 0.5s ease ${0.8+i*0.2}s forwards`}}>
+                <div style={{width:28,height:28,borderRadius:8,background:SP[s.speaker]?.bg||SP[0].bg,color:SP[s.speaker]?.color||SP[0].color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,marginTop:2}}>{SP[s.speaker]?.initial||"?"}</div>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:13,color:"#E8E8F0",lineHeight:1.6}}>{s.text}</span>
+                  {s.isClaim&&<span style={{marginLeft:8,padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,background:"rgba(255,214,102,0.15)",color:"#FFD666"}}>CLAIM</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section style={{position:"relative",zIndex:1,maxWidth:1100,margin:"0 auto",padding:"0 24px 120px"}}>
+        <div style={{textAlign:"center",marginBottom:64}}>
+          <p style={{fontSize:13,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#6C63FF",marginBottom:12}}>Features</p>
+          <h2 style={{fontSize:"clamp(28px,4vw,44px)",fontWeight:800,letterSpacing:"-0.03em",lineHeight:1.1}}>Everything happens live</h2>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:20}}>
+          {FEATURES.map((f,i)=>(
+            <div key={f.num} style={{display:"flex",gap:24,alignItems:"flex-start",padding:"32px 36px",borderRadius:20,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",transition:"all 0.5s cubic-bezier(0.16,1,0.3,1)",opacity:visibleFeatures.includes(i)?1:0,transform:visibleFeatures.includes(i)?"translateY(0)":"translateY(20px)"}}>
+              <div style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+                <span style={{fontSize:12,fontWeight:700,color:f.color,opacity:0.6}}>{f.num}</span>
+                <span style={{fontSize:32}}>{f.icon}</span>
+              </div>
+              <div>
+                <h3 style={{fontSize:20,fontWeight:700,marginBottom:6,color:"#E8E8F0"}}>{f.title}</h3>
+                <p style={{fontSize:15,lineHeight:1.6,color:"#888",margin:0}}>{f.desc}</p>
+              </div>
+            </div>
           ))}
         </div>
-      </div>
-      <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}`}</style>
+      </section>
+
+      {/* CTA */}
+      <section style={{position:"relative",zIndex:1,textAlign:"center",padding:"80px 24px 120px"}}>
+        <div style={{maxWidth:600,margin:"0 auto",padding:"60px 40px",borderRadius:24,background:"linear-gradient(135deg,rgba(108,99,255,0.08),rgba(0,210,255,0.06))",border:"1px solid rgba(108,99,255,0.15)"}}>
+          <h2 style={{fontSize:"clamp(24px,3.5vw,36px)",fontWeight:800,letterSpacing:"-0.03em",marginBottom:12}}>Ready to try Footnote?</h2>
+          <p style={{fontSize:16,color:"#888",marginBottom:32,lineHeight:1.6}}>Start your first live session in seconds. No credit card required.</p>
+          <Btn primary onClick={()=>setPage("signup")} style={{padding:"16px 48px",fontSize:16,borderRadius:14,boxShadow:"0 0 30px rgba(108,99,255,0.3)"}}>Get Started Free</Btn>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer style={{position:"relative",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.06)",padding:"32px 48px",maxWidth:1200,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:24,height:24,borderRadius:8,background:"linear-gradient(135deg,#6C63FF,#00D2FF)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800}}>F</div>
+          <span style={{fontSize:14,fontWeight:700}}>Footnote</span>
+        </div>
+        <span style={{fontSize:12,color:"#555"}}>&copy; 2026 Footnote. All rights reserved.</span>
+      </footer>
+
+      <style>{`
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+        @keyframes fadeSlideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
     </div>
   );
 }
