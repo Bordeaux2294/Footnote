@@ -27,6 +27,10 @@ INSTALLED_APPS = [
     'dj_rest_auth.registration',
     'accounts',
     'footnote',
+    "rest_framework",
+    "corsheaders",
+    "pgvector.django",
+    "accounts",
 ]
 
 SITE_ID = 1
@@ -132,6 +136,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
 CORS_ALLOW_CREDENTIALS = True
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+}
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
+
+GOOGLE_CLIENT_ID = os.environ.get("Google_Client_ID", "")
 
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
