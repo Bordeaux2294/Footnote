@@ -3,6 +3,7 @@ from .api.speechmatics import TemporaryKeyView
 from .api.saved_papers import SavedPaperDetailView, SavedPaperListView
 from .api.papers import PaperDetailView
 from .api.sessions import SessionDetailView, SessionListView
+from .api.verify import VerifyClaimView, VerifyStatusView
 
 urlpatterns = [
     path('token/', TemporaryKeyView.as_view()),
@@ -14,5 +15,8 @@ urlpatterns = [
 
     path('sessions/', SessionListView.as_view(), name='sessions'),
     path('sessions/<int:pk>/', SessionDetailView.as_view(), name='session-detail'),
+
+    path('verify/', VerifyClaimView.as_view(), name='verify'),
+    path('verify/status/<str:task_id>/', VerifyStatusView.as_view(), name='verify-status'),
 
 ]

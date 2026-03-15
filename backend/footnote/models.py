@@ -77,8 +77,8 @@ class Claim(models.Model):
         MISLEADING = 'misleading', 'Misleading'
         PENDING = 'pending', 'Pending'
 
-    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='claims')
-    sentence = models.OneToOneField(Sentence, on_delete=models.CASCADE, related_name='claim')
+    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='claims', blank=True, null=True)
+    sentence = models.OneToOneField(Sentence, on_delete=models.CASCADE, related_name='claim',blank=True, null=True)
     verdict = models.CharField(max_length=20, choices=Verdict.choices, default=Verdict.PENDING)
     confidence_score = models.FloatField(null=True, blank=True)
     summary = models.TextField(blank=True)

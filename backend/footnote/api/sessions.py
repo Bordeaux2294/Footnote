@@ -24,32 +24,6 @@ class SessionListView(APIView):
         serializer = SessionSerializer(session)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from .models import Session
-from .serializers import SessionSerializer, SessionListSerializer
-
-
-class SessionListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        sessions = Session.objects.filter(
-            user=request.user
-        ).order_by('-started_at')
-        serializer = SessionListSerializer(sessions, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        session = Session.objects.create(
-            user=request.user,
-            title=request.data.get('title', '')
-        )
-        serializer = SessionSerializer(session)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 class SessionDetailView(APIView):
     permission_classes = [IsAuthenticated]
