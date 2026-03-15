@@ -419,20 +419,6 @@ function LiveMode() {
     return speakerMapRef.current[speakerId];
   }, []);
 
-  const joinResults = (results: any[]) => {
-    let text = "";
-    for (const r of results) {
-      const content = r.alternatives?.[0]?.content || "";
-      if (!content) continue;
-      if (r.type === "punctuation") {
-        text += r.attaches_to === "next" ? " " + content : content;
-      } else {
-        text = text ? text + " " + content : content;
-      }
-    }
-    return text.trim();
-  };
-
   const resetState = useCallback(() => {
     setSentences([]); setPartialText(""); setPanel(false);
     setElapsed(0); elapsedRef.current = 0;
@@ -525,55 +511,50 @@ function LiveMode() {
       const client = new RealtimeClient();
       clientRef.current = client;
 
+      // Joins word-level results from one AddTranscript event into a single sentence string
+      const joinResults = (results: any[]) =>
+        (results || []).map((r: any) => r.alternatives?.[0]?.content ?? "").join(" ").trim();
+
       client.addEventListener("receiveMessage", ({ data }) => {
         if (data.message === "AddPartialTranscript") {
           if (!pausedRef.current) setPartialText(data.metadata?.transcript || "");
         } else if (data.message === "AddTranscript") {
           setPartialText("");
-          const results: any[] = data.results || [];
-          if (!results.length) return;
-
-          // Group consecutive tokens by speaker label
-          const groups: { speakerId: string; results: any[] }[] = [];
-          for (const r of results) {
-            const sid = r.alternatives?.[0]?.speaker || "S1";
-            if (!groups.length || groups[groups.length - 1].speakerId !== sid) {
-              groups.push({ speakerId: sid, results: [r] });
+          // Build the complete sentence from word-level results
+          const sentenceText = joinResults(data.results);
+          console.log("Received sentence:", sentenceText);
+          if (!sentenceText) return;
+          const speakerId = data.results?.[0]?.alternatives?.[0]?.speaker || "S1";
+          const speakerIdx = getSpeakerIdx(speakerId);
+          const sentenceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+          const newSentence = {
+            sentenceId, speakerId, speaker: speakerIdx, text: sentenceText,
+            timestamp: fmt(elapsedRef.current),
+            claim: null as null | boolean,
+          };
+          // Merge consecutive same-speaker sentences for display;
+          // resolve the correct row id and full accumulated text for the backend call
+          let resolvedId = sentenceId;
+          let fullText = sentenceText;
+          console.log("fullText", fullText);
+          setSentences(prev => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last && last.speaker === speakerIdx && last.claim !== true) {
+              resolvedId = last.sentenceId;
+              fullText = last.text + " " + sentenceText;
+              mergeMapRef.current[sentenceId] = last.sentenceId;
+              updated[updated.length - 1] = { ...last, text: fullText };
             } else {
-              groups[groups.length - 1].results.push(r);
+              updated.push(newSentence);
             }
-          }
 
-          // Each speaker group becomes one sentence; claim:null = pending backend check
-          const newSentences = groups
-            .map(g => ({
-              sentenceId: Math.random().toString(36).slice(2) + Date.now().toString(36),
-              speakerId: g.speakerId,
-              speaker: getSpeakerIdx(g.speakerId),
-              text: joinResults(g.results),
-              timestamp: fmt(elapsedRef.current),
-              claim: null as null | boolean,
-            }))
-            .filter(s => s.text);
+            console.log("updated", updated);
 
-          if (newSentences.length) {
-            // Merge into the previous sentence when the same speaker continues,
-            // recording the mapping so checkClaim can still update the right row.
-            setSentences(prev => {
-              const updated = [...prev];
-              for (const ns of newSentences) {
-                const last = updated[updated.length - 1];
-                if (last && last.speaker === ns.speaker && last.claim !== true) {
-                  mergeMapRef.current[ns.sentenceId] = last.sentenceId;
-                  updated[updated.length - 1] = { ...last, text: last.text + " " + ns.text };
-                } else {
-                  updated.push(ns);
-                }
-              }
-              return updated;
-            });
-            newSentences.forEach(checkClaim);
-          }
+            return updated;
+          });
+          // Send the complete sentence (full merged text) to the backend
+          checkClaim({ ...newSentence, sentenceId: resolvedId, text: fullText });
         } else if (data.message === "EndOfTranscript") {
           setRec(false); setPartialText(""); setShowSaveModal(true);
         } else if (data.message === "Error") {
