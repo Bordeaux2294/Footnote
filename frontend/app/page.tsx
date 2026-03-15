@@ -1,9 +1,9 @@
 "use client";
 
 
-import { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from "react";
 
-const AppCtx = createContext();
+const AppCtx = createContext<any>(null);
 const useApp = () => useContext(AppCtx);
 
 const SP = [
@@ -39,33 +39,33 @@ const SAVED_PAPERS = [
   { id:4, title:"Neural Network Architecture Comparisons", date:"Mar 1, 2026", claims:18, status:"Pending" },
 ];
 
-const Badge = ({children,color="#FFD666",bg}) => <span style={{padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",background:bg||`${color}22`,color}}>{children}</span>;
-const Btn = ({children,primary,small,style,...p}) => <button {...p} style={{padding:small?"6px 14px":"10px 22px",borderRadius:small?8:12,border:"none",cursor:"pointer",fontSize:small?12:14,fontWeight:600,background:primary?"linear-gradient(135deg,#6C63FF,#00D2FF)":"rgba(255,255,255,0.06)",color:primary?"#fff":"#ccc",transition:"all 0.2s",...style}}>{children}</button>;
-const Card = ({children,style,onClick}) => <div onClick={onClick} style={{padding:20,borderRadius:16,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",cursor:onClick?"pointer":"default",transition:"all 0.25s",...style}}>{children}</div>;
-const Input = ({label,type="text",...p}) => <div style={{display:"flex",flexDirection:"column",gap:6}}>{label&&<label style={{fontSize:12,fontWeight:600,color:"#888"}}>{label}</label>}<input type={type} {...p} style={{padding:"10px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#E8E8F0",fontSize:14,outline:"none",...(p.style||{})}}/></div>;
-const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+const Badge = ({children,color="#FFD666",bg}:{children:React.ReactNode;color?:string;bg?:string}) => <span style={{padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",background:bg||`${color}22`,color}}>{children}</span>;
+const Btn = ({children,primary,small,style,...p}:{children:React.ReactNode;primary?:boolean;small?:boolean;style?:React.CSSProperties;[key:string]:any}) => <button {...p} style={{padding:small?"6px 14px":"10px 22px",borderRadius:small?8:12,border:"none",cursor:"pointer",fontSize:small?12:14,fontWeight:600,background:primary?"linear-gradient(135deg,#6C63FF,#00D2FF)":"rgba(255,255,255,0.06)",color:primary?"#fff":"#ccc",transition:"all 0.2s",...style}}>{children}</button>;
+const Card = ({children,style,onClick}:{children:React.ReactNode;style?:React.CSSProperties;onClick?:()=>void}) => <div onClick={onClick} style={{padding:20,borderRadius:16,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",cursor:onClick?"pointer":"default",transition:"all 0.25s",...style}}>{children}</div>;
+const Input = ({label,type="text",...p}:{label?:string;type?:string;[key:string]:any}) => <div style={{display:"flex",flexDirection:"column",gap:6}}>{label&&<label style={{fontSize:12,fontWeight:600,color:"#888"}}>{label}</label>}<input type={type} {...p} style={{padding:"10px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#E8E8F0",fontSize:14,outline:"none",...(p.style||{})}}/></div>;
+const fmt = (s:number) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
 
-const WaveBar = ({active}) => {
+const WaveBar = ({active}:{active:boolean}) => {
   const [h,setH]=useState(Array(20).fill(4));
   useEffect(()=>{if(!active){setH(Array(20).fill(4));return;}const i=setInterval(()=>setH(Array(20).fill(0).map(()=>Math.random()*28+4)),120);return()=>clearInterval(i);},[active]);
   return <div style={{display:"flex",gap:2,alignItems:"center",height:32}}>{h.map((v,i)=><div key={i} style={{width:3,height:v,borderRadius:2,background:"linear-gradient(to top,#6C63FF,#00D2FF)",transition:"height 0.12s",opacity:active?.8:.2}}/>)}</div>;
 };
-const Pulse = ({color,size=10}) => {
+const Pulse = ({color,size=10}:{color:string;size?:number}) => {
   const [p,setP]=useState(false);
   useEffect(()=>{const i=setInterval(()=>setP(v=>!v),1500);return()=>clearInterval(i);},[]);
   return <div style={{position:"relative",width:size,height:size}}><div style={{position:"absolute",inset:0,borderRadius:"50%",background:color,opacity:.9}}/><div style={{position:"absolute",inset:-3,borderRadius:"50%",border:`2px solid ${color}`,opacity:p?0:.6,transform:p?"scale(1.8)":"scale(1)",transition:"all 1.5s ease-out"}}/></div>;
 };
 
 // ── Claim Card Stack ──
-function ClaimCardStack({ claims, open, onClose }) {
+function ClaimCardStack({ claims, open, onClose }:{claims:any[];open:boolean;onClose:()=>void}) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const stackRef = useRef(null);
+  const stackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (claims.length > 0) setActiveIdx(claims.length - 1); }, [claims.length]);
 
-  const goTo = (i) => setActiveIdx(Math.max(0, Math.min(claims.length - 1, i)));
+  const goTo = (i:number) => setActiveIdx(Math.max(0, Math.min(claims.length - 1, i)));
 
-  const handleWheel = useCallback((e) => {
+  const handleWheel = useCallback((e:WheelEvent) => {
     e.preventDefault();
     if (e.deltaY > 0) goTo(activeIdx - 1);
     else goTo(activeIdx + 1);
@@ -243,7 +243,7 @@ function LandingPage() {
   );
 }
 
-function AuthPage({mode}) {
+function AuthPage({mode}:{mode:string}) {
   const {setPage,setAuth}=useApp(); const isUp=mode==="signup";
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -323,9 +323,8 @@ function SessionsPage() {
   );
 }
 
-function SessionDetailPage({id}) {
+function SessionDetailPage({id}:{id:number}) {
   const session=SAVED_SESSIONS.find(s=>s.id===id);
-  const [sel,setSel]=useState(null);
   const [panel,setPanel]=useState(false);
   const allClaims = (session?.segments||[]).filter(s=>s.isClaim);
   if(!session) return <div style={{padding:40}}>Session not found.</div>;
@@ -628,7 +627,7 @@ function LiveMode() {
 
 function TextMode() {
   const [text,setText]=useState("");
-  const [results,setResults]=useState(null);
+  const [results,setResults]=useState<any[]|null>(null);
   const [panel,setPanel]=useState(false);
   const analyze=()=>{
     const sentences=text.split(/(?<=[.!?])\s+/).filter(Boolean);
@@ -663,7 +662,7 @@ function TextMode() {
 }
 
 // ── Nav ──
-function NavShell({children}) {
+function NavShell({children}:{children:React.ReactNode}) {
   const {page,setPage,setAuth}=useApp();
   const nav=[
     {id:"dashboard",label:"Dashboard",icon:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"},
