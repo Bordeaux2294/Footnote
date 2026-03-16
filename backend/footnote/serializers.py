@@ -66,22 +66,27 @@ class SentenceSerializer(serializers.ModelSerializer):
 
 class SessionSerializer(serializers.ModelSerializer):
     sentences = SentenceSerializer(many=True, read_only=True)
+    claim_history = ClaimSerializer(source='claims', many=True, read_only=True)
 
     class Meta:
         model = Session
-        fields = ['id', 'title', 'started_at', 'is_active', 'sentences']
+        fields = ['id', 'title', 'started_at', 'is_active', 'sentences', 'claim_history']
         read_only_fields = ['started_at']
 
 
 class SessionListSerializer(serializers.ModelSerializer):
     claim_count = serializers.SerializerMethodField()
+    sentence_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Session
-        fields = ['id', 'title', 'started_at', 'is_active', 'claim_count']
+        fields = ['id', 'title', 'started_at', 'is_active', 'claim_count', 'sentence_count']
 
     def get_claim_count(self, obj):
         return obj.claims.count()
+
+    def get_sentence_count(self, obj):
+        return obj.sentences.count()
 
 
 class SavedPaperSerializer(serializers.ModelSerializer):

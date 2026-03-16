@@ -77,3 +77,69 @@ def search_similar_chunks(embedding: list, top_k: int = 5) -> list:
 
 def generate_verdict(claim_text: str, retrieved_chunks: list) -> dict:
     raise NotImplementedError("generate_verdict not yet implemented")
+
+
+# ── SIMPLE VERDICT (no pgvector / embeddings needed) ─────────────────────────
+# Works with a list of paper dicts containing title, authors, year, url, abstract.
+# Uses Groq to determine if the claim is supported by the provided papers.
+
+def generate_verdict_simple(claim_text: str, papers: list) -> dict:
+    papers_context = "\n\n".join(
+        f"[Paper {i+1}] {p['title']} ({p['year']})\n"
+        f"Authors: {', '.join(p['authors']) if isinstance(p['authors'], list) else p['authors']}\n"
+        f"Abstract: {p['abstract']}"
+        for i, p in enumerate(papers)
+    )
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {
+                "role": "system",
+                "content": """You are an academic fact-checker. Given a claim and a set of peer-reviewed papers, determine whether the claim is supported, contradicted, inconclusive, or misleading based on the evidence in those papers.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "verdict": "supported",
+  "confidence_score": 0.92,
+  "summary": "Brief 1-2 sentence explanation of the verdict.",
+  "sources": [
+    {"index": 0, "title": "Paper title", "authors": ["Author"], "year": 2021, "url": "https://...", "supports": true, "excerpt": "Relevant quote or paraphrase from the paper."}
+  ]
+}
+
+Rules:
+- verdict must be one of: "supported", "contradicted", "inconclusive", "misleading"
+- Only include papers that are actually relevant to the claim in sources (at least 1, up to 3)
+- confidence_score is 0.0 to 1.0
+- excerpt should be a short relevant passage from the paper abstract
+- supports is true if the paper supports the claim, false if it contradicts"""
+            },
+            {
+                "role": "user",
+                "content": f"CLAIM: {claim_text}\n\nAVAILABLE PAPERS:\n{papers_context}"
+            }
+        ],
+        temperature=0.1,
+        max_tokens=800,
+    )
+
+    raw = response.choices[0].message.content.strip()
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Try to extract JSON from markdown code blocks
+        import re
+        match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', raw, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except json.JSONDecodeError:
+                pass
+        return {
+            "verdict": "inconclusive",
+            "confidence_score": 0.0,
+            "summary": "Could not process verdict.",
+            "sources": [],
+        }

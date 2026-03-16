@@ -1,61 +1,53 @@
 /**
- * Mock backend — persists a completed session.
- * In production this will write to a real database.
+ * Proxies session operations to the Django backend.
  *
- * Request:
- *   {
- *     sentences: Array<{
- *       sentenceId: string,
- *       speakerId: string,
- *       text: string,
- *       timestamp: string,
- *       claim: boolean,
- *       claimData?: { summary: string, url: string, savedPaper: string }
- *     }>,
- *     createdAt: string  // ISO timestamp
- *   }
- *
- * Response: { sessionId, message, summary: { sentenceCount, claimCount, createdAt } }
+ * POST → POST /api/footnote/sessions/  (create session with sentences + claims)
  */
 import { NextRequest, NextResponse } from "next/server";
 
+const BACKEND = process.env.BACKEND_URL || "http://localhost:8000";
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { sentences, createdAt } = body;
+  const token = req.headers.get("authorization") || "";
+  const { title, sentences } = body;
 
   if (!sentences || !Array.isArray(sentences)) {
-    return NextResponse.json({ error: "Invalid session data — expected sentences array" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid session data — expected sentences array" },
+      { status: 400 }
+    );
   }
 
-  // Validate each sentence has the required fields
-  for (const s of sentences) {
-    if (!s.sentenceId || !s.speakerId || typeof s.text !== "string") {
+  try {
+    const res = await fetch(`${BACKEND}/api/footnote/sessions/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+      body: JSON.stringify({ title, sentences }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: `Malformed sentence object: ${JSON.stringify(s)}` },
-        { status: 400 }
+        { error: err.detail || "Failed to create session" },
+        { status: res.status }
       );
     }
+
+    const session = await res.json();
+
+    return NextResponse.json({
+      sessionId: session.id,
+      message: "Session saved successfully",
+      session,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to connect to backend" },
+      { status: 502 }
+    );
   }
-
-  const sessionId = `session_${Date.now()}`;
-  const claims = sentences.filter((s: any) => s.claim === true);
-  const claimHistory = claims.map((c: any) => ({
-    sentenceId: c.sentenceId,
-    text: c.text,
-    speakerId: c.speakerId,
-    timestamp: c.timestamp,
-    claimData: c.claimData ?? null,
-  }));
-
-  return NextResponse.json({
-    sessionId,
-    message: "Session saved successfully",
-    summary: {
-      sentenceCount: sentences.length,
-      claimCount: claims.length,
-      createdAt: createdAt ?? new Date().toISOString(),
-    },
-    // Echo back structured claim history so the frontend can optionally use it
-    claimHistory,
-  });
 }

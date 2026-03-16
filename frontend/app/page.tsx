@@ -146,6 +146,18 @@ function ClaimCardStack({ claims, open, onClose }) {
                       </div>
                     </div>
 
+                    {/* Verdict badge */}
+                    {c.claimData?.verdict && (
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <Badge color={c.claimData.verdict==="supported"?"#4ADE80":c.claimData.verdict==="contradicted"?"#FF6B6B":c.claimData.verdict==="misleading"?"#FF9F43":"#888"} bg={c.claimData.verdict==="supported"?"rgba(74,222,128,0.12)":c.claimData.verdict==="contradicted"?"rgba(255,107,107,0.12)":c.claimData.verdict==="misleading"?"rgba(255,159,67,0.12)":"rgba(136,136,136,0.12)"}>
+                          {c.claimData.verdict}
+                        </Badge>
+                        {c.claimData.confidence != null && (
+                          <span style={{fontSize:11,color:"#666"}}>{Math.round(c.claimData.confidence * 100)}% confidence</span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Summary */}
                     {c.claimData?.summary && (
                       <div>
@@ -154,14 +166,28 @@ function ClaimCardStack({ claims, open, onClose }) {
                       </div>
                     )}
 
-                    {/* Source link */}
-                    {c.claimData?.url && (
+                    {/* Sources */}
+                    {c.claimData?.sources && c.claimData.sources.length > 0 && (
                       <div>
-                        <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Scholarly Source</div>
-                        <a href={c.claimData.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12.5,color:"#00D2FF",textDecoration:"none",display:"flex",alignItems:"center",gap:6,wordBreak:"break-all"}}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                          {c.claimData.url}
-                        </a>
+                        <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#666",marginBottom:8}}>Scholarly Sources</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                          {c.claimData.sources.map((src: any, si: number) => (
+                            <div key={si} style={{padding:10,borderRadius:10,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)"}}>
+                              <div style={{display:"flex",alignItems:"flex-start",gap:6,marginBottom:4}}>
+                                <div style={{width:6,height:6,borderRadius:"50%",background:src.supports?"#4ADE80":"#FF6B6B",marginTop:5,flexShrink:0}}/>
+                                <span style={{fontSize:12,fontWeight:600,color:"#ccc",lineHeight:1.4}}>{src.title}</span>
+                              </div>
+                              {src.authors && <p style={{fontSize:10,color:"#666",margin:"0 0 2px 12px"}}>{Array.isArray(src.authors)?src.authors.join(", "):src.authors} {src.year ? `(${src.year})` : ""}</p>}
+                              {src.excerpt && <p style={{fontSize:11,color:"#888",margin:"4px 0 0 12px",lineHeight:1.5,fontStyle:"italic"}}>"{src.excerpt}"</p>}
+                              {src.url && (
+                                <a href={src.url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#00D2FF",textDecoration:"none",display:"flex",alignItems:"center",gap:4,marginTop:6,marginLeft:12}}>
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                  View Paper
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -169,7 +195,7 @@ function ClaimCardStack({ claims, open, onClose }) {
                   <div style={{padding:16,opacity:0.7}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                       <div style={{width:22,height:22,borderRadius:6,background:"rgba(255,214,102,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#FFD666",flexShrink:0}}>#{i+1}</div>
-                      {c.claimData?.savedPaper && <span style={{fontSize:10,fontWeight:600,color:"#00D2FF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.claimData.savedPaper}</span>}
+                      {c.claimData?.verdict && <Badge color={c.claimData.verdict==="supported"?"#4ADE80":c.claimData.verdict==="contradicted"?"#FF6B6B":"#888"}>{c.claimData.verdict}</Badge>}
                     </div>
                     <p style={{fontSize:12,lineHeight:1.5,color:"#aaa",margin:0,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{c.text}"</p>
                   </div>
@@ -456,27 +482,85 @@ function SessionsPage() {
 }
 
 function SessionDetailPage({id}) {
-  const session=SAVED_SESSIONS.find(s=>s.id===id);
-  const [sel,setSel]=useState(null);
+  const {setPage}=useApp();
+  const [session,setSession]=useState<any>(null);
+  const [loading,setLoading]=useState(true);
   const [panel,setPanel]=useState(false);
-  const allClaims = (session?.segments||[]).filter(s=>s.isClaim);
-  if(!session) return <div style={{padding:40}}>Session not found.</div>;
-  const segs=session.segments;
+
+  useEffect(()=>{
+    const fetchSession = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch(`/api/sessions/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) { setLoading(false); return; }
+        const data = await res.json();
+        setSession(data.session || data);
+      } catch {}
+      setLoading(false);
+    };
+    // Try fetching from backend first, fall back to demo data
+    const demoSession = SAVED_SESSIONS.find(s=>s.id===id);
+    if (demoSession && demoSession.segments.length > 0) {
+      setSession(demoSession);
+      setLoading(false);
+    } else {
+      fetchSession();
+    }
+  },[id]);
+
+  if (loading) return <div style={{padding:40,textAlign:"center",color:"#666"}}>Loading session...</div>;
+  if (!session) return <div style={{padding:40}}>Session not found.</div>;
+
+  // Normalize: support both demo format and backend format
+  const segs = session.segments || (session.sentences || []).map((s:any,i:number) => ({
+    text: s.content || s.text,
+    speaker: s.speaker_id ? parseInt(s.speaker_id) || 0 : (s.speaker ?? 0),
+    isClaim: s.is_claim ?? s.isClaim ?? false,
+    claimData: s.claim ? {
+      verdict: s.claim.verdict,
+      confidence: s.claim.confidence_score,
+      summary: s.claim.summary,
+      sources: (s.claim.sources || []).map((src:any) => ({
+        title: src.paper?.title || src.title,
+        authors: src.paper?.authors || src.authors,
+        year: src.paper?.year || src.year,
+        url: src.paper?.source_url || src.url,
+        excerpt: src.excerpt,
+        supports: src.supports,
+      })),
+    } : undefined,
+    timestamp: s.timestamp || "",
+  }));
+  const allClaims = segs.filter((s:any)=>s.isClaim);
+
   return (
     <div style={{display:"flex",height:"calc(100vh - 56px)",overflow:"hidden"}}>
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{padding:"16px 24px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div><h2 style={{fontSize:18,fontWeight:700,margin:0}}>{session.title}</h2><p style={{fontSize:12,color:"#666",margin:"4px 0 0"}}>{session.date} · {session.duration} · {session.speakers} speakers · {session.claims} claims</p></div>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <button onClick={()=>setPage("sessions")} style={{background:"none",border:"none",color:"#888",cursor:"pointer",fontSize:14,padding:0}}>← Back</button>
+              <h2 style={{fontSize:18,fontWeight:700,margin:0}}>{session.title}</h2>
+            </div>
+            <p style={{fontSize:12,color:"#666",margin:"4px 0 0"}}>{session.date || session.started_at} · {allClaims.length} claims · {segs.length} sentences</p>
+          </div>
           <div style={{display:"flex",gap:8}}><Badge color="#4ADE80">Saved</Badge>{allClaims.length>0&&<Btn small onClick={()=>setPanel(!panel)}>{panel?"Hide":"Show"} Claims</Btn>}</div>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
           {segs.length===0?<p style={{color:"#666",textAlign:"center",marginTop:60}}>Full transcript data not available for this session.</p>:
-            segs.map((seg,i)=>{const sp=SP[seg.speaker];const prev=i>0?segs[i-1].speaker:-1;const showH=seg.speaker!==prev;return(
+            segs.map((seg:any,i:number)=>{const sp=SP[seg.speaker]||SP[0];const prev=i>0?segs[i-1].speaker:-1;const showH=seg.speaker!==prev;return(
               <div key={i}>
-                {showH&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:i>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${sp.color},${sp.color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{sp.initial}</div><span style={{fontSize:13,fontWeight:600,color:sp.color}}>{sp.name}</span><span style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{seg.timestamp}</span></div>}
-                <div onClick={()=>{if(seg.isClaim){const idx=allClaims.indexOf(seg);setPanel(true);}}} style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:seg.isClaim?"pointer":"default",background:seg.isClaim?"rgba(255,214,102,0.08)":"transparent",borderLeft:seg.isClaim?"3px solid #FFD666":"3px solid transparent"}}>
+                {showH&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:i>0?16:0,marginBottom:6}}><div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${sp.color},${sp.color}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{sp.initial}</div><span style={{fontSize:13,fontWeight:600,color:sp.color}}>{sp.name}</span>{seg.timestamp&&<span style={{fontSize:11,color:"#555",fontFamily:"monospace"}}>{seg.timestamp}</span>}</div>}
+                <div onClick={()=>{if(seg.isClaim)setPanel(true);}} style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:seg.isClaim?"pointer":"default",background:seg.isClaim?"rgba(255,214,102,0.08)":"transparent",borderLeft:seg.isClaim?"3px solid #FFD666":"3px solid transparent"}}>
                   <span style={{fontSize:14,lineHeight:1.65,color:seg.isClaim?"#FFE8A0":"#ccc"}}>{seg.text}</span>
-                  {seg.isClaim&&<span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
+                  {seg.isClaim&&(
+                    <span style={{marginLeft:8,display:"inline-flex",gap:6,alignItems:"center"}}>
+                      <Badge color="#FFD666">Claim</Badge>
+                      {seg.claimData?.verdict && <Badge color={seg.claimData.verdict==="supported"?"#4ADE80":seg.claimData.verdict==="contradicted"?"#FF6B6B":"#888"}>{seg.claimData.verdict}</Badge>}
+                    </span>
+                  )}
                 </div>
               </div>
             );})}
@@ -544,6 +628,9 @@ function LiveMode() {
   const nextSpIdxRef = useRef(0);
   // Maps a merged sentenceId → the parent sentenceId it was merged into
   const mergeMapRef = useRef<Record<string, string>>({});
+  // Buffer for accumulating transcript text until a sentence boundary is hit
+  const sentenceBufferRef = useRef<{ text: string; speakerId: string }>({ text: "", speakerId: "" });
+  const sentenceCounterRef = useRef(0);
 
   const claims = sentences.filter(s => s.claim === true);
 
@@ -572,6 +659,8 @@ function LiveMode() {
     setError(null); setShowSaveModal(false);
     speakerMapRef.current = {}; nextSpIdxRef.current = 0;
     mergeMapRef.current = {};
+    sentenceBufferRef.current = { text: "", speakerId: "" };
+    sentenceCounterRef.current = 0;
     pausedRef.current = false; setPaused(false);
   }, []);
 
@@ -580,18 +669,26 @@ function LiveMode() {
   const checkClaim = useCallback(async (sentence: any) => {
     const resolvedId = mergeMapRef.current[sentence.sentenceId] ?? sentence.sentenceId;
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch("/api/check-sentence", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sentenceId: resolvedId, speakerId: sentence.speakerId, text: sentence.text, timestamp: sentence.timestamp }),
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ sentenceId: resolvedId, speakerId: sentence.speakerId, text: sentence.text }),
       });
       const result = await res.json();
+      const isClaim = result.is_claim === true;
+      const claimData = isClaim ? {
+        verdict: result.verdict,
+        confidence: result.confidence,
+        summary: result.summary,
+        sources: result.sources || [],
+      } : undefined;
       setSentences(prev => prev.map(s =>
         s.sentenceId === resolvedId
-          ? { ...s, claim: result.claim, ...(result.claimData ? { claimData: result.claimData } : {}) }
+          ? { ...s, claim: isClaim, ...(claimData ? { claimData } : {}) }
           : s
       ));
-      if (result.claim) setPanel(true);
+      if (isClaim) setPanel(true);
     } catch {
       setSentences(prev => prev.map(s => s.sentenceId === resolvedId ? { ...s, claim: false } : s));
     }
@@ -618,17 +715,18 @@ function LiveMode() {
   const saveSession = async () => {
     setSaving(true);
     try {
+      const token = localStorage.getItem("access_token");
       const res = await fetch("/api/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
+          title: `Session ${new Date().toLocaleString()}`,
           sentences: sentences.map(s => ({
-            sentenceId: s.sentenceId, speakerId: s.speakerId,
-            text: s.text, timestamp: s.timestamp,
-            claim: s.claim ?? false,
+            speakerId: s.speakerId,
+            text: s.text,
+            isClaim: s.claim === true,
             ...(s.claimData ? { claimData: s.claimData } : {}),
           })),
-          createdAt: new Date().toISOString(),
         }),
       });
       const result = await res.json();
@@ -669,21 +767,52 @@ function LiveMode() {
           setPartialText("");
           // Build the complete sentence from word-level results
           const sentenceText = joinResults(data.results);
-          console.log("Received sentence:", sentenceText);
           if (!sentenceText) return;
           const speakerId = data.results?.[0]?.alternatives?.[0]?.speaker || "S1";
           const speakerIdx = getSpeakerIdx(speakerId);
+
+          // Accumulate text into buffer, split on sentence-ending punctuation
+          const buf = sentenceBufferRef.current;
+          if (buf.speakerId && buf.speakerId !== speakerId && buf.text.trim()) {
+            // Speaker changed — flush whatever is in the buffer as a sentence
+            sentenceCounterRef.current++;
+            const id = sentenceCounterRef.current;
+            const flushed = buf.text.trim();
+            const flushedSpeaker = buf.speakerId;
+            console.table([{ id, speaker: flushedSpeaker, sentence: flushed }]);
+            buf.text = "";
+          }
+          buf.speakerId = speakerId;
+          buf.text += (buf.text ? " " : "") + sentenceText;
+
+          // Extract complete sentences (ending with . ? ! … or similar)
+          const sentenceEndPattern = /([^.!?…]+[.!?…]+)/g;
+          let match;
+          const completeSentences: string[] = [];
+          let lastIndex = 0;
+          while ((match = sentenceEndPattern.exec(buf.text)) !== null) {
+            completeSentences.push(match[1].trim());
+            lastIndex = sentenceEndPattern.lastIndex;
+          }
+          // Keep the remainder (incomplete sentence) in the buffer
+          buf.text = buf.text.slice(lastIndex);
+
+          // Log each complete sentence as a table row
+          for (const s of completeSentences) {
+            sentenceCounterRef.current++;
+            const id = sentenceCounterRef.current;
+            console.table([{ id, speaker: speakerId, sentence: s }]);
+          }
+
+          // Continue with existing display / claim-check logic
           const sentenceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
           const newSentence = {
             sentenceId, speakerId, speaker: speakerIdx, text: sentenceText,
             timestamp: fmt(elapsedRef.current),
             claim: null as null | boolean,
           };
-          // Merge consecutive same-speaker sentences for display;
-          // resolve the correct row id and full accumulated text for the backend call
           let resolvedId = sentenceId;
           let fullText = sentenceText;
-          console.log("fullText", fullText);
           setSentences(prev => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
@@ -695,14 +824,17 @@ function LiveMode() {
             } else {
               updated.push(newSentence);
             }
-
-            console.log("updated", updated);
-
             return updated;
           });
-          // Send the complete sentence (full merged text) to the backend
           checkClaim({ ...newSentence, sentenceId: resolvedId, text: fullText });
         } else if (data.message === "EndOfTranscript") {
+          // Flush any remaining text in the sentence buffer
+          const buf = sentenceBufferRef.current;
+          if (buf.text.trim()) {
+            sentenceCounterRef.current++;
+            console.table([{ id: sentenceCounterRef.current, speaker: buf.speakerId, sentence: buf.text.trim() }]);
+            buf.text = ""; buf.speakerId = "";
+          }
           setRec(false); setPartialText(""); setShowSaveModal(true);
         } else if (data.message === "Error") {
           setError(`Speechmatics: ${data.reason || JSON.stringify(data)}`);
@@ -731,6 +863,9 @@ function LiveMode() {
           language: "en", operating_point: "enhanced",
           max_delay: 2.0, enable_partials: true, diarization: "speaker",
           transcript_filtering_config: { remove_disfluencies: true },
+          "speaker_diarization_config": {
+                "speaker_sensitivity": 0.6
+    }
         },
         audio_format: { type: "raw" as const, encoding: "pcm_s16le" as const, sample_rate: audioContext.sampleRate },
       });
@@ -788,7 +923,16 @@ function LiveMode() {
                   style={{padding:"8px 12px",marginLeft:36,borderRadius:10,cursor:s.claim===true?"pointer":"default",background:s.claim===true?"rgba(255,214,102,0.08)":"transparent",borderLeft:s.claim===true?"3px solid #FFD666":s.claim===null?"3px solid rgba(108,99,255,0.25)":"3px solid transparent",transition:"border-color 0.5s,background 0.5s"}}
                 >
                   <span style={{fontSize:14,lineHeight:1.65,color:s.claim===true?"#FFE8A0":"#ccc"}}>{s.text}</span>
-                  {s.claim === true && <span style={{marginLeft:8}}><Badge color="#FFD666">Claim</Badge></span>}
+                  {s.claim === true && (
+                    <span style={{marginLeft:8,display:"inline-flex",gap:6,alignItems:"center"}}>
+                      <Badge color="#FFD666">Claim</Badge>
+                      {s.claimData?.verdict && (
+                        <Badge color={s.claimData.verdict==="supported"?"#4ADE80":s.claimData.verdict==="contradicted"?"#FF6B6B":s.claimData.verdict==="misleading"?"#FF9F43":"#888"}>
+                          {s.claimData.verdict}
+                        </Badge>
+                      )}
+                    </span>
+                  )}
                   {s.claim === null && <span style={{marginLeft:8,display:"inline-flex",alignItems:"center",gap:4,fontSize:11,color:"#444"}}><Pulse color="#6C63FF" size={6}/>checking</span>}
                 </div>
               </div>
