@@ -797,36 +797,19 @@ function LiveMode() {
           // Keep the remainder (incomplete sentence) in the buffer
           buf.text = buf.text.slice(lastIndex);
 
-          // Log each complete sentence as a table row
+          // Create a separate sentence entry for each complete sentence and check each individually
           for (const s of completeSentences) {
+            if (!s) continue;
             sentenceCounterRef.current++;
-            const id = sentenceCounterRef.current;
-            console.table([{ id, speaker: speakerId, sentence: s }]);
+            const sId = Math.random().toString(36).slice(2) + Date.now().toString(36) + sentenceCounterRef.current;
+            const newSentence = {
+              sentenceId: sId, speakerId, speaker: speakerIdx, text: s,
+              timestamp: fmt(elapsedRef.current),
+              claim: null as null | boolean,
+            };
+            setSentences(prev => [...prev, newSentence]);
+            checkClaim(newSentence);
           }
-
-          // Continue with existing display / claim-check logic
-          const sentenceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
-          const newSentence = {
-            sentenceId, speakerId, speaker: speakerIdx, text: sentenceText,
-            timestamp: fmt(elapsedRef.current),
-            claim: null as null | boolean,
-          };
-          let resolvedId = sentenceId;
-          let fullText = sentenceText;
-          setSentences(prev => {
-            const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last && last.speaker === speakerIdx && last.claim !== true) {
-              resolvedId = last.sentenceId;
-              fullText = last.text + " " + sentenceText;
-              mergeMapRef.current[sentenceId] = last.sentenceId;
-              updated[updated.length - 1] = { ...last, text: fullText };
-            } else {
-              updated.push(newSentence);
-            }
-            return updated;
-          });
-          checkClaim({ ...newSentence, sentenceId: resolvedId, text: fullText });
         } else if (data.message === "EndOfTranscript") {
           // Flush any remaining text in the sentence buffer
           const buf = sentenceBufferRef.current;
